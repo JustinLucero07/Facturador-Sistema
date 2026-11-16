@@ -48,3 +48,15 @@ Thumbs.db
 .nx/polygraph
 .nx/self-healing
 .nx/migrate-runs
+.angular
+
+__screenshots__/
+
+# secretos
+.env
+.env.*
+!.env.example
+
+# Clientes Prisma generados (pnpm db:generate)
+libs/db/src/generated
+libs/hub-db/src/generated

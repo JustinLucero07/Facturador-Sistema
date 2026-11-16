@@ -1,0 +1,111 @@
+<div class="page">
+  <section class="panel" aria-labelledby="login-title">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">V</span>
+      <span>Vektra <strong>POS</strong></span>
+    </div>
+
+    @if (loading()) {
+      <mat-progress-bar mode="indeterminate" class="progress" />
+    }
+
+    @switch (step()) {
+      @case ('credentials') {
+        <h1 id="login-title">Ingresar</h1>
+        <p class="sub">Facturación electrónica, inventario y caja.</p>
+
+        @if (expirada() && !error()) {
+          <div class="alert info" role="status">Su sesión expiró. Ingrese nuevamente.</div>
+        }
+
+        <form [formGroup]="credentials" (ngSubmit)="submitCredentials()" novalidate>
+          <mat-form-field>
+            <mat-label>Correo electrónico</mat-label>
+            <input matInput type="email" formControlName="email" autocomplete="username" inputmode="email" />
+            <mat-error><vk-field-error [control]="credentials.controls.email" /></mat-error>
+          </mat-form-field>
+
+          <mat-form-field>
+            <mat-label>Contraseña</mat-label>
+            <input matInput [type]="showPassword() ? 'text' : 'password'" formControlName="password" autocomplete="current-password" />
+            <button
+              matIconButton
+              matSuffix
+              type="button"
+              (click)="showPassword.set(!showPassword())"
+              [attr.aria-label]="showPassword() ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+            >
+              <span class="material-symbols-outlined">{{ showPassword() ? 'visibility_off' : 'visibility' }}</span>
+            </button>
+            <mat-error><vk-field-error [control]="credentials.controls.password" /></mat-error>
+          </mat-form-field>
+
+          @if (error()) {
+            <div class="alert" role="alert">{{ error() }}</div>
+          }
+
+          <button matButton="filled" class="submit" type="submit" [disabled]="loading()">Ingresar</button>
+        </form>
+      }
+
+      @case ('2fa') {
+        <h1 id="login-title">Verificación en dos pasos</h1>
+        <p class="sub">Ingrese el código de 6 dígitos de su aplicación de autenticación.</p>
+        <form (ngSubmit)="submitCode()" novalidate>
+          <mat-form-field>
+            <mat-label>Código</mat-label>
+            <input
+              matInput
+              class="code"
+              [formControl]="code"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              maxlength="6"
+              cdkFocusInitial
+            />
+            <mat-error>Ingrese los 6 dígitos</mat-error>
+          </mat-form-field>
+          @if (error()) {
+            <div class="alert" role="alert">{{ error() }}</div>
+          }
+          <button matButton="filled" class="submit" type="submit" [disabled]="loading()">Verificar</button>
+          <button matButton type="button" class="link" (click)="back()">Volver</button>
+        </form>
+      }
+
+      @case ('tenant') {
+        <h1 id="login-title">Seleccione la empresa</h1>
+        <p class="sub">Su usuario tiene acceso a varias empresas.</p>
+        <div class="tenants">
+          @for (t of tenants(); track t.id) {
+            <button class="tenant" type="button" (click)="chooseTenant(t)" [disabled]="loading()">
+              <span class="material-symbols-outlined">apartment</span>
+              <span class="tenant-text">
+                <strong>{{ t.name }}</strong>
+                <span class="vk-mono vk-muted">RUC {{ t.ruc }}</span>
+              </span>
+              <span class="material-symbols-outlined chevron">chevron_right</span>
+            </button>
+          }
+        </div>
+        @if (error()) {
+          <div class="alert" role="alert">{{ error() }}</div>
+        }
+        <button matButton type="button" class="link" (click)="back()">Volver</button>
+      }
+    }
+  </section>
+
+  <aside class="side" aria-hidden="true">
+    <div class="side-inner">
+      <p class="eyebrow">Hecho en Cuenca para todo el Ecuador</p>
+      <p class="claim">Venda, facture al SRI y controle su inventario. Aunque se vaya el internet.</p>
+      <ul>
+        <li><span class="material-symbols-outlined">receipt_long</span> Facturación electrónica SRI</li>
+        <li><span class="material-symbols-outlined">inventory_2</span> Inventario y kárdex</li>
+        <li><span class="material-symbols-outlined">point_of_sale</span> Punto de venta táctil</li>
+      </ul>
+      <p class="by">Vektra Systems</p>
+    </div>
+  </aside>
+</div>

@@ -1,0 +1,17 @@
+{
+  "name": "sri-core",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/sri-core/src",
+  "projectType": "library",
+  "tags": [],
+  "// targets": "to see all targets run: nx show project sri-core --web",
+  "targets": {
+    "xsd-bundle": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node tools/xsd-bundle.mjs",
+        "cwd": "{workspaceRoot}"
+      }
+    }
+  }
+}

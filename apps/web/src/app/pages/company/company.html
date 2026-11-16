@@ -1,0 +1,136 @@
+<div class="vk-page">
+  <div class="vk-page-header">
+    <div>
+      <h1>Empresa</h1>
+      @if (company(); as c) {
+        <p>RUC <span class="vk-mono">{{ c.ruc }}</span> · Datos que aparecen en sus comprobantes electrónicos</p>
+      }
+    </div>
+  </div>
+
+  <div class="layout">
+    <form class="vk-card" [formGroup]="form" (ngSubmit)="save()">
+      <h2>Datos tributarios</h2>
+      <div class="vk-form-grid">
+        <mat-form-field class="vk-full">
+          <mat-label>Razón social</mat-label>
+          <input matInput formControlName="legalName" />
+          <mat-hint>Exactamente como consta en el RUC</mat-hint>
+          <mat-error><vk-field-error [control]="form.controls.legalName" /></mat-error>
+        </mat-form-field>
+        <mat-form-field class="vk-full">
+          <mat-label>Nombre comercial</mat-label>
+          <input matInput formControlName="tradeName" />
+        </mat-form-field>
+        <mat-form-field class="vk-full">
+          <mat-label>Dirección matriz</mat-label>
+          <input matInput formControlName="mainAddress" />
+          <mat-error><vk-field-error [control]="form.controls.mainAddress" /></mat-error>
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Régimen</mat-label>
+          <mat-select formControlName="taxRegime">
+            @for (r of regimes; track r.value) {
+              <mat-option [value]="r.value">{{ r.label }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Contribuyente especial (N.º resolución)</mat-label>
+          <input matInput formControlName="specialTaxpayerNumber" />
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Agente de retención (N.º resolución)</mat-label>
+          <input matInput formControlName="withholdingAgentNumber" />
+        </mat-form-field>
+        <div class="toggle-cell">
+          <mat-slide-toggle formControlName="keepsAccounting">Obligado a llevar contabilidad</mat-slide-toggle>
+        </div>
+      </div>
+
+      <h2>Ambiente del SRI</h2>
+      <mat-button-toggle-group formControlName="environment" aria-label="Ambiente SRI">
+        <mat-button-toggle [value]="1">Pruebas</mat-button-toggle>
+        <mat-button-toggle [value]="2">Producción</mat-button-toggle>
+      </mat-button-toggle-group>
+      <p class="vk-muted hint">Use Pruebas hasta confirmar que sus facturas se autorizan correctamente.</p>
+
+      <h2>Inventario</h2>
+      <div class="vk-form-grid">
+        <div class="toggle-cell">
+          <mat-slide-toggle formControlName="allowNegativeStock">Permitir vender sin stock (stock negativo)</mat-slide-toggle>
+        </div>
+        <mat-form-field>
+          <mat-label>Decimales en cantidades</mat-label>
+          <input matInput type="number" min="0" max="4" formControlName="quantityDecimals" />
+          <mat-hint>Ej. 3 para vender por kilo o metro</mat-hint>
+        </mat-form-field>
+      </div>
+
+      @if (auth.can('company.update')) {
+        <div class="vk-actions">
+          <button matButton="filled" type="submit" [disabled]="saving() || form.pristine">Guardar cambios</button>
+        </div>
+      }
+    </form>
+
+    <div class="side">
+      <section class="vk-card">
+        <h2>Módulos</h2>
+        <p class="vk-muted hint">Active solo lo que su negocio usa. Algunos dependen de su plan.</p>
+        <ul class="modules">
+          @for (m of company()?.modules ?? []; track m.code) {
+            <li [matTooltip]="m.allowedByPlan ? '' : 'No incluido en su plan'">
+              <mat-slide-toggle
+                [checked]="m.enabled"
+                [disabled]="!auth.can('company.update') || (!m.allowedByPlan && !m.enabled)"
+                (change)="toggleModule(m.code, $event.checked)"
+              >
+                <span class="m-name">{{ m.name }}</span>
+                <span class="m-desc vk-muted">{{ m.description }}</span>
+              </mat-slide-toggle>
+            </li>
+          }
+        </ul>
+      </section>
+
+      <section class="vk-card" id="licencia">
+        <h2>Licencia</h2>
+        @if (license.status(); as s) {
+          <dl class="kv">
+            <dt>Estado</dt>
+            <dd>
+              <span class="vk-badge" [class.ok]="s.canIssueDocuments" [class.danger]="!s.canIssueDocuments">{{ s.message }}</span>
+            </dd>
+            @if (s.client) {
+              <dt>Cliente</dt>
+              <dd>{{ s.client }}</dd>
+            }
+            @if (s.plan) {
+              <dt>Plan</dt>
+              <dd class="cap">{{ s.plan }}</dd>
+            }
+            @if (s.expiresAt) {
+              <dt>Válida hasta</dt>
+              <dd>{{ s.expiresAt | date: 'medium' }}</dd>
+            }
+            @if (s.lastValidatedAt) {
+              <dt>Última validación</dt>
+              <dd>{{ s.lastValidatedAt | date: 'medium' }}</dd>
+            }
+          </dl>
+        }
+        @if (auth.can('license.manage')) {
+          <mat-form-field class="code-field">
+            <mat-label>Código de activación</mat-label>
+            <textarea matInput rows="3" [formControl]="activationCode" class="vk-mono" placeholder="VKL1…"></textarea>
+            <mat-hint>Úselo solo si Vektra se lo entrega (por ejemplo, si su servidor no tiene internet)</mat-hint>
+          </mat-form-field>
+          <div class="vk-actions">
+            <button matButton="tonal" (click)="activate()">Activar</button>
+          </div>
+        }
+      </section>
+    </div>
+  </div>
+</div>

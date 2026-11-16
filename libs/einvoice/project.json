@@ -1,0 +1,9 @@
+{
+  "name": "einvoice",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/einvoice/src",
+  "projectType": "library",
+  "tags": [],
+  "// targets": "to see all targets run: nx show project einvoice --web",
+  "targets": {}
+}

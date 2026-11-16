@@ -1,0 +1,63 @@
+# Vektra Hub — servidor central de Vektra Systems (licencias, clientes, planes).
+# docker compose -f docker-compose.hub.yml --env-file .env.hub up -d --build
+name: vektra-hub
+
+x-node: &node
+  image: vektra/node:${VEKTRA_VERSION:-latest}
+  build:
+    context: .
+    dockerfile: docker/Dockerfile
+    target: node
+  env_file: .env.hub
+  restart: unless-stopped
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: vektra
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD}
+      POSTGRES_DB: vektra_hub
+      VEKTRA_APP_PASSWORD: ${VEKTRA_APP_PASSWORD:?Defina VEKTRA_APP_PASSWORD}
+    volumes:
+      - hubdata:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U vektra']
+      interval: 5s
+      retries: 20
+
+  migrate:
+    <<: *node
+    restart: 'no'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    working_dir: /app/libs/hub-db
+    command: ['sh', '-c', '../../node_modules/.bin/prisma migrate deploy && ../../node_modules/.bin/prisma db seed']
+    environment:
+      HUB_DATABASE_OWNER_URL: postgresql://vektra:${POSTGRES_PASSWORD}@postgres:5432/vektra_hub
+
+  hub-api:
+    <<: *node
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      APP: hub-api
+      HUB_DATABASE_URL: postgresql://vektra_app:${VEKTRA_APP_PASSWORD}@postgres:5432/vektra_hub
+
+  hub-web:
+    image: vektra/hub-web:${VEKTRA_VERSION:-latest}
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: hub-web
+    restart: unless-stopped
+    depends_on: [hub-api]
+    ports:
+      - '${HUB_WEB_PORT:-8080}:80'
+
+volumes:
+  hubdata:

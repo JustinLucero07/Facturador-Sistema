@@ -1,0 +1,77 @@
+<div class="vk-page">
+  <div class="vk-page-header">
+    <div>
+      <h1>Mi cuenta</h1>
+      <p>{{ auth.session()?.user?.fullName }} · {{ auth.session()?.user?.email }}</p>
+    </div>
+  </div>
+
+  <div class="grid">
+    <section class="vk-card">
+      <h2>Cambiar contraseña</h2>
+      <p class="vk-muted sub">Se cerrarán todas sus sesiones abiertas.</p>
+      <form [formGroup]="password" (ngSubmit)="changePassword()">
+        <mat-form-field>
+          <mat-label>Contraseña actual</mat-label>
+          <input matInput type="password" formControlName="currentPassword" autocomplete="current-password" />
+          <mat-error><vk-field-error [control]="password.controls.currentPassword" /></mat-error>
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Nueva contraseña</mat-label>
+          <input matInput type="password" formControlName="newPassword" autocomplete="new-password" />
+          <mat-hint>Mínimo 8 caracteres con letras y números</mat-hint>
+          <mat-error><vk-field-error [control]="password.controls.newPassword" /></mat-error>
+        </mat-form-field>
+        <div class="vk-actions">
+          <button matButton="filled" type="submit" [disabled]="busy()">Cambiar contraseña</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="vk-card">
+      <h2>Verificación en dos pasos</h2>
+      <p class="vk-muted sub">Además de su contraseña, se pedirá un código de Google Authenticator, Microsoft Authenticator o similar.</p>
+
+      @if (auth.session()?.user?.totpEnabled) {
+        <div class="status"><span class="vk-badge ok">Activa</span></div>
+        <form [formGroup]="disable" (ngSubmit)="disableTwoFactor()">
+          <mat-form-field>
+            <mat-label>Contraseña</mat-label>
+            <input matInput type="password" formControlName="password" autocomplete="current-password" />
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Código actual</mat-label>
+            <input matInput formControlName="code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" />
+          </mat-form-field>
+          <div class="vk-actions">
+            <button matButton type="submit">Desactivar</button>
+          </div>
+        </form>
+      } @else if (setup(); as s) {
+        <ol>
+          <li>Escanee este código con su aplicación de autenticación.</li>
+          <li>Escriba el código de 6 dígitos que muestra la aplicación.</li>
+        </ol>
+        <div class="qr">
+          <img [src]="s.qrDataUrl" alt="Código QR para la verificación en dos pasos" />
+          <div>
+            <div class="vk-muted">¿No puede escanear? Ingrese esta clave:</div>
+            <div class="vk-mono secret">{{ s.secret }}</div>
+          </div>
+        </div>
+        <mat-form-field>
+          <mat-label>Código de 6 dígitos</mat-label>
+          <input matInput [formControl]="enableCode" inputmode="numeric" maxlength="6" autocomplete="one-time-code" />
+          <mat-error>Ingrese los 6 dígitos</mat-error>
+        </mat-form-field>
+        <div class="vk-actions">
+          <button matButton (click)="setup.set(null)">Cancelar</button>
+          <button matButton="filled" (click)="enable()">Activar</button>
+        </div>
+      } @else {
+        <div class="status"><span class="vk-badge">Inactiva</span></div>
+        <button matButton="filled" (click)="startSetup()">Configurar</button>
+      }
+    </section>
+  </div>
+</div>

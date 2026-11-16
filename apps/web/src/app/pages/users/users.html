@@ -1,0 +1,99 @@
+<div class="vk-page">
+  <div class="vk-page-header">
+    <div>
+      <h1>Usuarios</h1>
+      <p>Personas con acceso a esta empresa y su rol.</p>
+    </div>
+    @if (auth.can('users.manage')) {
+      <button matButton="filled" (click)="open()">
+        <span class="material-symbols-outlined">person_add</span> Nuevo usuario
+      </button>
+    }
+  </div>
+
+  <div class="vk-table-wrap">
+    <table mat-table [dataSource]="users()">
+      <ng-container matColumnDef="name">
+        <th mat-header-cell *matHeaderCellDef>Usuario</th>
+        <td mat-cell *matCellDef="let u">
+          <div class="name">{{ u.fullName }}</div>
+          <div class="vk-muted">{{ u.email }}</div>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="roles">
+        <th mat-header-cell *matHeaderCellDef>Roles</th>
+        <td mat-cell *matCellDef="let u">
+          @for (r of u.roles; track r.id) {
+            <span class="vk-badge brand role">{{ r.name }}</span>
+          }
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="status">
+        <th mat-header-cell *matHeaderCellDef>Estado</th>
+        <td mat-cell *matCellDef="let u">
+          @if (!u.active) {
+            <span class="vk-badge">Inactivo</span>
+          } @else if (u.locked) {
+            <span class="vk-badge danger">Bloqueado</span>
+          } @else {
+            <span class="vk-badge ok">Activo</span>
+          }
+          @if (u.totpEnabled) {
+            <span class="material-symbols-outlined shield" matTooltip="Verificación en dos pasos activa">verified_user</span>
+          }
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="lastLogin">
+        <th mat-header-cell *matHeaderCellDef>Último ingreso</th>
+        <td mat-cell *matCellDef="let u" class="vk-muted">{{ u.lastLoginAt ? (u.lastLoginAt | date: 'short') : 'Nunca' }}</td>
+      </ng-container>
+
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef></th>
+        <td mat-cell *matCellDef="let u" class="actions">
+          @if (auth.can('users.manage')) {
+            <button matIconButton [matMenuTriggerFor]="menu" [attr.aria-label]="'Acciones para ' + u.fullName">
+              <span class="material-symbols-outlined">more_vert</span>
+            </button>
+            <mat-menu #menu="matMenu" xPosition="before">
+              <button mat-menu-item (click)="open(u)">
+                <span class="material-symbols-outlined">edit</span><span>Editar</span>
+              </button>
+              <button mat-menu-item (click)="resetPassword(u)">
+                <span class="material-symbols-outlined">key</span><span>Cambiar contraseña</span>
+              </button>
+              @if (u.locked) {
+                <button mat-menu-item (click)="unlock(u)">
+                  <span class="material-symbols-outlined">lock_open</span><span>Desbloquear</span>
+                </button>
+              }
+              @if (u.userId !== auth.session()?.user?.id) {
+                <button mat-menu-item (click)="toggleActive(u)">
+                  <span class="material-symbols-outlined">{{ u.active ? 'person_off' : 'person_check' }}</span>
+                  <span>{{ u.active ? 'Desactivar' : 'Activar' }}</span>
+                </button>
+              }
+            </mat-menu>
+          }
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="columns"></tr>
+      <tr mat-row *matRowDef="let row; columns: columns" [class.inactive]="!row.active"></tr>
+    </table>
+    @if (!loading() && users().length === 0) {
+      <div class="vk-empty">No hay usuarios.</div>
+    }
+  </div>
+</div>
+
+<style>
+  .name { font-weight: 600; }
+  .role { margin: 2px 4px 2px 0; }
+  .shield { font-size: 18px; color: var(--vk-success); margin-left: 6px; }
+  .actions { text-align: right; width: 56px; }
+  tr.inactive td { opacity: 0.6; }
+</style>

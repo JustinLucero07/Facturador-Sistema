@@ -1,23 +1,22 @@
-<!-- nx configuration start-->
-<!-- Leave the start & end comments to automatically receive updates. -->
+# Vektra POS — guía para agentes
 
-# General Guidelines for working with Nx
+- Producto comercial: facturación SRI Ecuador + inventario + POS. Se construye **por fases** (ver `docs/00-propuesta-arquitectura.md`); no avanzar de fase sin aprobación del usuario.
+- Código en inglés; **toda la interfaz y los mensajes de error en español (Ecuador)**. USD, America/Guayaquil.
+- **No inventar especificaciones del SRI**: usar la Ficha Técnica offline y XSD oficiales; preguntar si hay duda. Valores tributarios siempre en BD, nunca fijos en código.
 
-- For navigating/exploring the workspace, invoke the `nx-workspace` skill first - it has patterns for querying projects, targets, and dependencies
-- When running tasks (for example build, lint, test, e2e, etc.), always prefer running the task through `nx` (i.e. `nx run`, `nx run-many`, `nx affected`) instead of using the underlying tooling directly
-- Prefix nx commands with the workspace's package manager (e.g., `pnpm nx build`, `npm exec nx test`) - avoids using globally installed CLI
-- You have access to the Nx MCP server and its tools, use them to help the user
-- For Nx plugin best practices, check `node_modules/@nx/<plugin>/PLUGIN.md`. Not all plugins have this file - proceed without it if unavailable.
-- NEVER guess CLI flags - always check nx_docs or `--help` first when unsure
+## Comandos
 
-## Scaffolding & Generators
+- pnpm 9.15.9 (no hay npm en esta máquina; pnpm está en `~/.local/bin`). Ejecutar tareas con `pnpm nx <target> <proyecto>`.
+- Infra dev: `pnpm dev:infra` (Postgres 5440, Redis 6390, Mailpit 8025).
+- Pruebas: `pnpm nx test <lib>` (Jest), `pnpm nx e2e api` (Vitest contra Postgres real, no destructivo).
+- Prisma: ejecutar desde `libs/db` o `libs/hub-db` (`../../node_modules/.bin/prisma ...`). Nunca `migrate reset` sin consentimiento explícito del usuario.
 
-- For scaffolding tasks (creating apps, libs, project structure, setup), ALWAYS invoke the `nx-generate` skill FIRST before exploring or calling MCP tools
+## Reglas de arquitectura
 
-## When to use nx_docs
-
-- USE for: advanced config options, unfamiliar flags, migration guides, plugin configuration, edge cases
-- DON'T USE for: basic generator syntax (`nx g @nx/react:app`), standard commands, things you already know
-- The `nx-generate` skill handles generator discovery internally - don't call nx_docs just to look up generator syntax
-
-<!-- nx configuration end-->
+- Toda tabla de negocio lleva `tenant_id` + política RLS (agregar la tabla a la migración de RLS). La app usa el rol `vektra_app`; acceder a datos de empresa SIEMPRE con `PrismaService.tx()` / `withContext()`.
+- IDs con `uuidv7()` de `@vektra/db` (generables offline).
+- Secuenciales solo con `nextSequential()` dentro de la transacción del comprobante.
+- Validación de entrada con esquemas zod de `@vektra/shared-contracts` + `ZodPipe`; permisos con `@RequirePermissions()`.
+- Cambios auditables: `AuditService.record(tx, …)` dentro de la misma transacción.
+- NestJS 12 es ESM: pruebas de apps Nest con Vitest + SWC (`tools/vitest-nest.mts`), no Jest.
+- UI: Angular Material (PrimeNG 22 requiere licencia de pago; no usarlo).

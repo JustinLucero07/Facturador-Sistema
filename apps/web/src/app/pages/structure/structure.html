@@ -1,0 +1,105 @@
+<div class="vk-page">
+  <div class="vk-page-header">
+    <div>
+      <h1>Establecimientos</h1>
+      <p>Deben coincidir con los registrados en el SRI. La serie del comprobante es establecimiento-punto de emisión (ej. 001-002).</p>
+    </div>
+    @if (auth.can('structure.manage')) {
+      <button matButton="filled" (click)="newEstablishment()">
+        <span class="material-symbols-outlined">add_business</span> Nuevo establecimiento
+      </button>
+    }
+  </div>
+
+  <mat-accordion multi>
+    @for (e of items(); track e.id; let first = $first) {
+      <mat-expansion-panel [expanded]="first" class="panel">
+        <mat-expansion-panel-header>
+          <mat-panel-title>
+            <span class="code vk-mono">{{ e.code }}</span>
+            <span class="title">{{ e.name }}</span>
+            @if (!e.active) {
+              <span class="vk-badge">Inactivo</span>
+            }
+          </mat-panel-title>
+          <mat-panel-description class="desc">{{ e.address }}</mat-panel-description>
+        </mat-expansion-panel-header>
+
+        <div class="cols">
+          <section>
+            <div class="section-head">
+              <h3>Puntos de emisión / cajas</h3>
+              @if (auth.can('structure.manage')) {
+                <button matButton (click)="editPoint(e)"><span class="material-symbols-outlined">add</span> Agregar</button>
+              }
+            </div>
+            <ul class="rows">
+              @for (p of e.emissionPoints; track p.id) {
+                <li>
+                  <span class="vk-mono serie">{{ e.code }}-{{ p.code }}</span>
+                  <span class="row-main">
+                    {{ p.name }}
+                    @if (p.deviceName) {
+                      <span class="vk-muted"> · {{ p.deviceName }}</span>
+                    }
+                  </span>
+                  <span
+                    class="vk-badge"
+                    [class.brand]="p.kind === 'DESKTOP'"
+                    [matTooltip]="p.kind === 'DESKTOP' ? 'Caja de escritorio: puede facturar sin internet; su secuencial lo controla la caja' : 'Facturación desde el navegador'"
+                  >
+                    {{ p.kind === 'DESKTOP' ? 'Escritorio' : 'Web' }}
+                  </span>
+                  @if (!p.active) {
+                    <span class="vk-badge">Inactivo</span>
+                  }
+                  @if (auth.can('structure.manage')) {
+                    <button matIconButton (click)="editPoint(e, p)" [attr.aria-label]="'Editar ' + p.name">
+                      <span class="material-symbols-outlined">edit</span>
+                    </button>
+                  }
+                </li>
+              } @empty {
+                <li class="vk-muted">Sin puntos de emisión</li>
+              }
+            </ul>
+          </section>
+
+          <section>
+            <div class="section-head">
+              <h3>Bodegas</h3>
+              @if (auth.can('structure.manage')) {
+                <button matButton (click)="editWarehouse(e)"><span class="material-symbols-outlined">add</span> Agregar</button>
+              }
+            </div>
+            <ul class="rows">
+              @for (w of e.warehouses; track w.id) {
+                <li>
+                  <span class="material-symbols-outlined vk-muted">warehouse</span>
+                  <span class="row-main">{{ w.name }}</span>
+                  @if (w.isDefault) {
+                    <span class="vk-badge ok">Principal</span>
+                  }
+                  @if (!w.active) {
+                    <span class="vk-badge">Inactiva</span>
+                  }
+                  @if (auth.can('structure.manage')) {
+                    <button matIconButton (click)="editWarehouse(e, w)" [attr.aria-label]="'Editar ' + w.name">
+                      <span class="material-symbols-outlined">edit</span>
+                    </button>
+                  }
+                </li>
+              }
+            </ul>
+          </section>
+        </div>
+
+        @if (auth.can('structure.manage')) {
+          <mat-action-row>
+            <button matButton (click)="editEstablishment(e)">Editar establecimiento</button>
+          </mat-action-row>
+        }
+      </mat-expansion-panel>
+    }
+  </mat-accordion>
+</div>

@@ -1,23 +1,32 @@
 {
+  "compileOnSave": false,
   "compilerOptions": {
-    "composite": true,
-    "declarationMap": true,
-    "emitDeclarationOnly": true,
+    "rootDir": ".",
+    "sourceMap": true,
+    "declaration": false,
+    "moduleResolution": "bundler",
+    "module": "esnext",
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
     "importHelpers": true,
-    "isolatedModules": true,
-    "lib": ["es2022"],
-    "module": "nodenext",
-    "moduleResolution": "nodenext",
-    "noEmitOnError": true,
-    "noFallthroughCasesInSwitch": true,
-    "noImplicitOverride": true,
-    "noImplicitReturns": true,
-    "noUnusedLocals": true,
-    "skipLibCheck": true,
-    "strict": true,
     "target": "es2022",
-    "customConditions": ["@org/source"],
-    "noUncheckedSideEffectImports": false,
-    "types": ["*"]
-  }
+    "lib": ["es2022", "dom"],
+    "skipLibCheck": true,
+    "skipDefaultLibCheck": true,
+    "strict": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "paths": {
+      "@vektra/db": ["./libs/db/src/index.ts"],
+      "@vektra/shared-contracts": ["./libs/shared-contracts/src/index.ts"],
+      "@vektra/shared-domain": ["./libs/shared-domain/src/index.ts"],
+      "@vektra/licensing": ["./libs/licensing/src/index.ts"],
+      "@vektra/hub-db": ["./libs/hub-db/src/index.ts"],
+      "@vektra/nest-common": ["./libs/nest-common/src/index.ts"],
+      "@vektra/sri-core": ["./libs/sri-core/src/index.ts"],
+      "@vektra/einvoice": ["./libs/einvoice/src/index.ts"]
+    },
+    "types": ["node"]
+  },
+  "exclude": ["node_modules", "tmp"]
 }

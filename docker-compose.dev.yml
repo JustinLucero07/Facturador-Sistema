@@ -1,0 +1,36 @@
+# Infraestructura local de desarrollo (las apps corren con `pnpm nx serve ...`).
+# Uso: docker compose -f docker-compose.dev.yml up -d
+name: vektra-dev
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: vektra
+      POSTGRES_PASSWORD: vektra_dev
+      POSTGRES_DB: vektra
+      VEKTRA_APP_PASSWORD: vektra_app_dev
+      VEKTRA_EXTRA_DBS: vektra_hub vektra_test
+    ports:
+      - '127.0.0.1:5440:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U vektra']
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '127.0.0.1:6390:6379'
+
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports:
+      - '127.0.0.1:8025:8025'
+      - '127.0.0.1:1025:1025'
+
+volumes:
+  pgdata:

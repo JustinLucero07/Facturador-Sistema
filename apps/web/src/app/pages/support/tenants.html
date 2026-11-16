@@ -1,0 +1,96 @@
+<div class="vk-page">
+  <div class="vk-page-header">
+    <div>
+      <h1>Empresas de esta instalación</h1>
+      <p>Solo Soporte Vektra. Cada empresa es un RUC con datos completamente aislados.</p>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="vk-table-wrap">
+      <table mat-table [dataSource]="tenants()">
+        <ng-container matColumnDef="company">
+          <th mat-header-cell *matHeaderCellDef>Empresa</th>
+          <td mat-cell *matCellDef="let t">
+            <strong>{{ t.tradeName ?? t.legalName }}</strong>
+            <div class="vk-muted vk-mono">{{ t.ruc }} · desde {{ t.createdAt | date: 'mediumDate' }}</div>
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="template">
+          <th mat-header-cell *matHeaderCellDef>Tipo</th>
+          <td mat-cell *matCellDef="let t">{{ templateName(t.businessTemplate) }}</td>
+        </ng-container>
+        <ng-container matColumnDef="status">
+          <th mat-header-cell *matHeaderCellDef>Estado</th>
+          <td mat-cell *matCellDef="let t">
+            <span class="vk-badge" [class.ok]="t.status === 'ACTIVE'" [class.danger]="t.status !== 'ACTIVE'">
+              {{ t.status === 'ACTIVE' ? 'Activa' : 'Suspendida' }}
+            </span>
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef></th>
+          <td mat-cell *matCellDef="let t">
+            <button matButton (click)="setStatus(t, t.status === 'ACTIVE')">{{ t.status === 'ACTIVE' ? 'Suspender' : 'Reactivar' }}</button>
+          </td>
+        </ng-container>
+        <tr mat-header-row *matHeaderRowDef="columns"></tr>
+        <tr mat-row *matRowDef="let row; columns: columns"></tr>
+      </table>
+    </div>
+
+    <form class="vk-card" [formGroup]="form" (ngSubmit)="create()">
+      <h2>Nueva empresa</h2>
+      <mat-form-field style="width: 100%">
+        <mat-label>RUC</mat-label>
+        <input matInput formControlName="ruc" maxlength="13" inputmode="numeric" class="vk-mono" />
+        <mat-error><vk-field-error [control]="form.controls.ruc" /></mat-error>
+      </mat-form-field>
+      <mat-form-field style="width: 100%">
+        <mat-label>Razón social</mat-label>
+        <input matInput formControlName="legalName" />
+        <mat-error><vk-field-error [control]="form.controls.legalName" /></mat-error>
+      </mat-form-field>
+      <mat-form-field style="width: 100%">
+        <mat-label>Nombre comercial</mat-label>
+        <input matInput formControlName="tradeName" />
+      </mat-form-field>
+      <mat-form-field style="width: 100%">
+        <mat-label>Dirección matriz</mat-label>
+        <input matInput formControlName="mainAddress" />
+        <mat-error><vk-field-error [control]="form.controls.mainAddress" /></mat-error>
+      </mat-form-field>
+      <mat-form-field style="width: 100%">
+        <mat-label>Tipo de negocio</mat-label>
+        <mat-select formControlName="businessTemplate">
+          @for (t of templates; track t.code) {
+            <mat-option [value]="t.code">{{ t.name }}</mat-option>
+          }
+        </mat-select>
+        <mat-hint>Activa los módulos adecuados; se puede cambiar después</mat-hint>
+      </mat-form-field>
+
+      <h3>Administrador de la empresa</h3>
+      <div formGroupName="admin">
+        <mat-form-field style="width: 100%">
+          <mat-label>Nombre</mat-label>
+          <input matInput formControlName="fullName" />
+          <mat-error><vk-field-error [control]="form.controls.admin.controls.fullName" /></mat-error>
+        </mat-form-field>
+        <mat-form-field style="width: 100%">
+          <mat-label>Correo</mat-label>
+          <input matInput type="email" formControlName="email" />
+          <mat-error><vk-field-error [control]="form.controls.admin.controls.email" /></mat-error>
+        </mat-form-field>
+        <mat-form-field style="width: 100%">
+          <mat-label>Contraseña inicial</mat-label>
+          <input matInput type="text" formControlName="password" autocomplete="new-password" />
+          <mat-error><vk-field-error [control]="form.controls.admin.controls.password" /></mat-error>
+        </mat-form-field>
+      </div>
+      <div class="vk-actions">
+        <button matButton="filled" type="submit" [disabled]="saving()">Crear empresa</button>
+      </div>
+    </form>
+  </div>
+</div>

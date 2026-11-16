@@ -1,0 +1,83 @@
+# Vektra POS — despliegue en la VPS de un cliente.
+# 1. Copie .env.example a .env y complete los valores (ver docs/instalacion-vps.md).
+# 2. docker compose up -d --build
+# El servicio `migrate` aplica migraciones y seed antes de iniciar api y worker.
+name: vektra
+
+x-node: &node
+  image: vektra/node:${VEKTRA_VERSION:-latest}
+  build:
+    context: .
+    dockerfile: docker/Dockerfile
+    target: node
+  env_file: .env
+  restart: unless-stopped
+  depends_on:
+    migrate:
+      condition: service_completed_successfully
+    redis:
+      condition: service_started
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: vektra
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD en .env}
+      POSTGRES_DB: vektra
+      VEKTRA_APP_PASSWORD: ${VEKTRA_APP_PASSWORD:?Defina VEKTRA_APP_PASSWORD en .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U vektra']
+      interval: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes:
+      - redisdata:/data
+
+  migrate:
+    <<: *node
+    restart: 'no'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    working_dir: /app/libs/db
+    command: ['sh', '-c', '../../node_modules/.bin/prisma migrate deploy && ../../node_modules/.bin/prisma db seed']
+    environment:
+      DATABASE_OWNER_URL: postgresql://vektra:${POSTGRES_PASSWORD}@postgres:5432/vektra
+
+  api:
+    <<: *node
+    environment:
+      APP: api
+      DATABASE_URL: postgresql://vektra_app:${VEKTRA_APP_PASSWORD}@postgres:5432/vektra
+      REDIS_URL: redis://redis:6379
+
+  worker:
+    <<: *node
+    environment:
+      APP: worker
+      DATABASE_URL: postgresql://vektra_app:${VEKTRA_APP_PASSWORD}@postgres:5432/vektra
+      REDIS_URL: redis://redis:6379
+
+  web:
+    image: vektra/web:${VEKTRA_VERSION:-latest}
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: web
+    restart: unless-stopped
+    depends_on: [api]
+    ports:
+      - '${WEB_PORT:-80}:80'
+
+volumes:
+  pgdata:
+  redisdata:

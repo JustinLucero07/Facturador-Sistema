@@ -1,0 +1,12 @@
+node_modules
+dist
+tmp
+coverage
+.git
+.nx
+.angular
+.env
+.env.*
+!.env.example
+**/src/generated
+docs

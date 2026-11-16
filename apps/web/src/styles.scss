@@ -1,0 +1,202 @@
+@use '@angular/material' as mat;
+// Fuentes e íconos empaquetados localmente: la caja de escritorio debe funcionar sin internet.
+@use '@fontsource-variable/inter/index.css';
+@use 'material-symbols/outlined.css';
+
+// ─── Tema Vektra (Material 3) ───
+html {
+  color-scheme: light;
+  @include mat.theme(
+    (
+      color: (
+        primary: mat.$cyan-palette,
+        tertiary: mat.$orange-palette,
+        theme-type: light,
+      ),
+      typography: (
+        plain-family: 'Inter Variable, system-ui, sans-serif',
+        brand-family: 'Inter Variable, system-ui, sans-serif',
+      ),
+      density: 0,
+    )
+  );
+
+  // Superficies algo más cálidas y marca más profunda que la paleta base.
+  @include mat.theme-overrides(
+    (
+      primary: #0b5560,
+      on-primary: #ffffff,
+      primary-container: #cdeef2,
+      on-primary-container: #032a30,
+      surface: #fbfcfc,
+      surface-container-low: #f3f6f6,
+      surface-container: #edf1f1,
+    )
+  );
+}
+
+:root {
+  --vk-radius: 12px;
+  --vk-gap: 16px;
+  --vk-success: #1d7a46;
+  --vk-success-bg: #e3f4ea;
+  --vk-warn: #8a5300;
+  --vk-warn-bg: #fff1d6;
+  --vk-danger: #a3261b;
+  --vk-danger-bg: #fde7e4;
+  --vk-muted: var(--mat-sys-on-surface-variant);
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--mat-sys-body-medium-font);
+  background: var(--mat-sys-surface);
+  color: var(--mat-sys-on-surface);
+  -webkit-font-smoothing: antialiased;
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  vertical-align: middle;
+}
+
+// ─── Utilidades de página ───
+.vk-page {
+  padding: 24px clamp(16px, 3vw, 32px) 48px;
+  max-width: 1280px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.vk-page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--vk-gap);
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+
+  h1 {
+    font: var(--mat-sys-headline-small);
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+
+  p {
+    margin: 4px 0 0;
+    color: var(--vk-muted);
+    font: var(--mat-sys-body-medium);
+  }
+}
+
+.vk-card {
+  background: var(--mat-sys-surface-container-lowest, #fff);
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: var(--vk-radius);
+  padding: 20px;
+}
+
+.vk-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 4px 16px;
+}
+
+.vk-full {
+  grid-column: 1 / -1;
+}
+
+.vk-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.vk-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: var(--vk-radius);
+  background: var(--mat-sys-surface-container-lowest, #fff);
+
+  table {
+    width: 100%;
+  }
+}
+
+.vk-muted {
+  color: var(--vk-muted);
+}
+
+.vk-mono {
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  font-size: 0.92em;
+}
+
+// Chips de estado
+.vk-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font: var(--mat-sys-label-medium);
+  white-space: nowrap;
+  background: var(--mat-sys-surface-container-high);
+  color: var(--mat-sys-on-surface-variant);
+
+  &.ok {
+    background: var(--vk-success-bg);
+    color: var(--vk-success);
+  }
+  &.warn {
+    background: var(--vk-warn-bg);
+    color: var(--vk-warn);
+  }
+  &.danger {
+    background: var(--vk-danger-bg);
+    color: var(--vk-danger);
+  }
+  &.brand {
+    background: var(--mat-sys-primary-container);
+    color: var(--mat-sys-on-primary-container);
+  }
+}
+
+.vk-empty {
+  text-align: center;
+  padding: 40px 16px;
+  color: var(--vk-muted);
+}
+
+// Ícono + texto dentro de botones Material
+.mat-mdc-button-base:not(.mat-mdc-icon-button) > .material-symbols-outlined {
+  font-size: 20px;
+  margin: 0 6px 0 -4px;
+}
+
+// Que la etiqueta flotante del primer campo no quede cortada dentro de un diálogo
+.mat-mdc-dialog-content > form:first-child,
+.mat-mdc-dialog-content > p + form {
+  padding-top: 8px;
+}
+
+// Diálogos: ancho cómodo en escritorio, completo en móvil.
+.vk-dialog {
+  width: min(640px, calc(100vw - 32px));
+}
+
+// Snackbars por tipo
+.vk-snack-error {
+  --mat-snack-bar-container-color: var(--vk-danger);
+  --mat-snack-bar-supporting-text-color: #fff;
+}
+.vk-snack-ok {
+  --mat-snack-bar-container-color: var(--vk-success);
+  --mat-snack-bar-supporting-text-color: #fff;
+}

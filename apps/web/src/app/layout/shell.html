@@ -1,0 +1,103 @@
+<mat-sidenav-container class="container">
+  <mat-sidenav #drawer [mode]="isMobile() ? 'over' : 'side'" [opened]="!isMobile()" class="sidenav">
+    <a class="brand" routerLink="/">
+      <span class="brand-mark" aria-hidden="true">V</span>
+      <span class="brand-text">Vektra <strong>POS</strong></span>
+    </a>
+
+    <nav aria-label="Menú principal">
+      @for (section of nav(); track section.title) {
+        @if (section.title) {
+          <div class="nav-title">{{ section.title }}</div>
+        }
+        @for (item of section.items; track item.link) {
+          <a
+            class="nav-item"
+            [routerLink]="item.link"
+            routerLinkActive="active"
+            [routerLinkActiveOptions]="{ exact: item.link === '/' }"
+            (click)="isMobile() && drawer.close()"
+          >
+            <span class="material-symbols-outlined">{{ item.icon }}</span>
+            <span>{{ item.label }}</span>
+          </a>
+        }
+      }
+    </nav>
+
+    <div class="nav-footer vk-muted">Fase 0 · Ventas, inventario y SRI llegan en las siguientes fases</div>
+  </mat-sidenav>
+
+  <mat-sidenav-content class="content">
+    <header class="topbar">
+      @if (isMobile()) {
+        <button matIconButton (click)="drawer.toggle()" aria-label="Abrir menú">
+          <span class="material-symbols-outlined">menu</span>
+        </button>
+      }
+
+      @if (otherTenants().length > 0) {
+        <button matButton class="tenant" [matMenuTriggerFor]="tenantMenu" aria-label="Cambiar de empresa">
+          <span class="material-symbols-outlined">apartment</span>
+          <span class="tenant-name">{{ auth.tenantName() }}</span>
+          <span class="material-symbols-outlined">expand_more</span>
+        </button>
+      } @else {
+        <span class="tenant tenant-static">
+          <span class="material-symbols-outlined">apartment</span>
+          <span class="tenant-name">{{ auth.tenantName() }}</span>
+        </span>
+      }
+      <mat-menu #tenantMenu="matMenu">
+        <div class="menu-caption">Cambiar de empresa</div>
+        @for (t of otherTenants(); track t.id) {
+          <button mat-menu-item (click)="switchTo(t)">
+            <span>{{ t.name }}</span>
+            <span class="vk-muted vk-mono menu-ruc">{{ t.ruc }}</span>
+          </button>
+        }
+      </mat-menu>
+
+      @if (auth.session()?.tenant?.environment === 1) {
+        <span class="vk-badge warn sri-badge" matTooltip="Los comprobantes se envían al ambiente de PRUEBAS del SRI y no tienen validez tributaria">
+          SRI: pruebas
+        </span>
+      } @else {
+        <span class="vk-badge ok sri-badge">SRI: producción</span>
+      }
+
+      <span class="spacer"></span>
+
+      <button matButton class="user" [matMenuTriggerFor]="userMenu" aria-label="Menú de usuario">
+        <span class="avatar" aria-hidden="true">{{ initials() }}</span>
+        <span class="user-name">{{ auth.session()?.user?.fullName }}</span>
+      </button>
+      <mat-menu #userMenu="matMenu" xPosition="before">
+        <div class="menu-caption">{{ auth.session()?.user?.email }}</div>
+        <a mat-menu-item routerLink="/mi-cuenta">
+          <span class="material-symbols-outlined">manage_accounts</span>
+          <span>Mi cuenta y seguridad</span>
+        </a>
+        <mat-divider />
+        <button mat-menu-item (click)="auth.logout()">
+          <span class="material-symbols-outlined">logout</span>
+          <span>Cerrar sesión</span>
+        </button>
+      </mat-menu>
+    </header>
+
+    @if (license.banner(); as banner) {
+      <div class="license-banner" [class.danger]="banner.level === 'danger'" role="alert">
+        <span class="material-symbols-outlined">{{ banner.level === 'danger' ? 'block' : 'wifi_off' }}</span>
+        <span>{{ banner.message }}</span>
+        @if (auth.can('license.manage')) {
+          <a routerLink="/empresa" fragment="licencia">Ingresar código de activación</a>
+        }
+      </div>
+    }
+
+    <main>
+      <router-outlet />
+    </main>
+  </mat-sidenav-content>
+</mat-sidenav-container>

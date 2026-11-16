@@ -1,0 +1,79 @@
+<div class="vk-page">
+  <div class="vk-page-header">
+    <div>
+      <h1>Roles y permisos</h1>
+      <p>Defina qué puede hacer cada tipo de usuario. Los cambios aplican de inmediato.</p>
+    </div>
+    @if (canManage()) {
+      <button matButton="filled" (click)="create()">
+        <span class="material-symbols-outlined">add</span> Nuevo rol
+      </button>
+    }
+  </div>
+
+  <div class="layout">
+    <aside class="list vk-card" aria-label="Roles">
+      @for (r of roles(); track r.id) {
+        <button class="role" [class.selected]="draft()?.id === r.id" (click)="select(r)">
+          <span class="role-name">{{ r.name }}</span>
+          <span class="vk-muted role-meta">
+            {{ r.memberCount }} {{ r.memberCount === 1 ? 'usuario' : 'usuarios' }} · {{ r.permissions.length }} permisos
+          </span>
+          @if (r.isSystem) {
+            <span class="vk-badge">Sistema</span>
+          }
+        </button>
+      }
+    </aside>
+
+    @if (draft(); as d) {
+      <section class="editor vk-card">
+        <div class="vk-form-grid">
+          <mat-form-field>
+            <mat-label>Nombre del rol</mat-label>
+            <input matInput [ngModel]="d.name" (ngModelChange)="setName($event)" [disabled]="!canManage()" />
+          </mat-form-field>
+          <mat-form-field>
+            <mat-label>Descripción</mat-label>
+            <input matInput [ngModel]="d.description" (ngModelChange)="setDescription($event)" [disabled]="!canManage()" />
+          </mat-form-field>
+        </div>
+
+        @if (isAdminRole()) {
+          <p class="note">El rol Administrador siempre tiene todos los permisos.</p>
+        }
+
+        <div class="groups">
+          @for (g of groups(); track g.module) {
+            <fieldset class="group">
+              <legend>
+                <mat-checkbox
+                  [checked]="groupState(g) === 'all'"
+                  [indeterminate]="groupState(g) === 'some'"
+                  (change)="toggleGroup(g, $event.checked)"
+                  [disabled]="!canManage() || isAdminRole()"
+                >
+                  <strong>{{ g.label }}</strong>
+                </mat-checkbox>
+              </legend>
+              @for (p of g.permissions; track p.code) {
+                <mat-checkbox [checked]="has(p.code)" (change)="toggle(p.code, $event.checked)" [disabled]="!canManage() || isAdminRole()">
+                  {{ p.description }}
+                </mat-checkbox>
+              }
+            </fieldset>
+          }
+        </div>
+
+        @if (canManage()) {
+          <div class="vk-actions footer">
+            @if (d.id && !d.isSystem) {
+              <button matButton class="danger" (click)="remove()">Eliminar rol</button>
+            }
+            <button matButton="filled" (click)="save()" [disabled]="saving()">Guardar cambios</button>
+          </div>
+        }
+      </section>
+    }
+  </div>
+</div>
