@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { uuidSchema } from './common';
+import type { PaymentMethodDef } from './pos';
 
 const decimalInput = (label: string, max = 6) =>
   z
@@ -20,6 +21,10 @@ export const buyerSchema = z.object({
 export type BuyerInput = z.infer<typeof buyerSchema>;
 
 export const invoiceLineSchema = z.object({
+  /** Producto del catálogo (descuenta stock); opcional para líneas libres */
+  productId: uuidSchema.nullable().optional(),
+  /** Presentación vendida (caja, metro…); null = unidad base */
+  productUnitId: uuidSchema.nullable().optional(),
   mainCode: z.string().trim().max(25).nullable().optional(),
   auxCode: z.string().trim().max(25).nullable().optional(),
   description: z.string().trim().min(1, 'Ingrese la descripción').max(300),
@@ -40,6 +45,8 @@ export const invoicePaymentSchema = z.object({
   term: z.number().int().min(0).max(3650).nullable().optional(),
   timeUnit: z.string().max(10).nullable().optional(),
   reference: z.string().max(100).nullable().optional(),
+  /** Efectivo entregado (para el vuelto en el ticket) */
+  cashReceived: decimalInput('Efectivo recibido', 2).nullable().optional(),
 });
 
 export const issueInvoiceSchema = z.object({
@@ -49,11 +56,27 @@ export const issueInvoiceSchema = z.object({
   payments: z.array(invoicePaymentSchema).min(1, 'Indique la forma de pago').max(10),
   tip: decimalInput('Propina', 2).optional(),
   additionalInfo: z.array(z.object({ name: z.string().trim().min(1).max(300), value: z.string().trim().min(1).max(300) })).max(10).optional(),
+  /** Venta del POS: caja abierta del punto de emisión */
+  cashSessionId: uuidSchema.nullable().optional(),
+  /** Proforma que se convierte en esta factura */
+  quoteId: uuidSchema.nullable().optional(),
 });
 export type IssueInvoiceRequest = z.input<typeof issueInvoiceSchema>;
 export type IssueInvoiceParsed = z.output<typeof issueInvoiceSchema>;
 
-export type EDocStatusCode = 'DRAFT' | 'SIGNED' | 'SENT' | 'RECEIVED' | 'RETURNED' | 'AUTHORIZED' | 'NOT_AUTHORIZED' | 'CONTINGENCY';
+export type EDocStatusCode =
+  | 'DRAFT'
+  | 'SIGNED'
+  | 'SENT'
+  | 'RECEIVED'
+  | 'RETURNED'
+  | 'AUTHORIZED'
+  | 'NOT_AUTHORIZED'
+  | 'CONTINGENCY'
+  /** Solo en la caja de escritorio: venta guardada en la computadora, aún no llega al servidor */
+  | 'PENDING_SYNC'
+  /** Solo en la caja de escritorio: el servidor rechazó la venta al sincronizar */
+  | 'REJECTED_SYNC';
 
 export const EDOC_STATUS_LABELS: Record<EDocStatusCode, string> = {
   DRAFT: 'Borrador',
@@ -64,6 +87,8 @@ export const EDOC_STATUS_LABELS: Record<EDocStatusCode, string> = {
   AUTHORIZED: 'Autorizado',
   NOT_AUTHORIZED: 'No autorizado',
   CONTINGENCY: 'En contingencia',
+  PENDING_SYNC: 'Pendiente de sincronizar',
+  REJECTED_SYNC: 'Rechazada al sincronizar',
 };
 
 export interface SriMessageView {
@@ -137,6 +162,8 @@ export interface EInvoiceConfig {
   idTypes: { code: string; description: string }[];
   finalConsumer: { id: string; name: string; maxAmount: string };
   emissionPoints: { id: string; label: string; establishmentId: string }[];
+  /** Medios de pago del POS con su código SRI (parámetro payment_methods) */
+  posPaymentMethods: PaymentMethodDef[];
   environment: number;
   certificate: CertificateStatus;
 }

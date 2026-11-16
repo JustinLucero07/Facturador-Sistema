@@ -14,6 +14,9 @@ Cada cliente tiene **su propia VPS** con una instancia del sistema. El **Vektra 
 | `apps/hub-api`, `apps/hub-web` | Vektra Hub: licencias, clientes, planes |
 | `libs/db` | Esquema Prisma de la instancia, migraciones (incluye **RLS**), seed, secuenciales |
 | `libs/hub-db` | Esquema Prisma del Hub |
+| `libs/sri-core` | SRI puro (servidor y escritorio): clave de acceso, cálculo, XML, XSD, firma XAdES-BES, SOAP, RIDE — ver [docs/fase-1-sri.md](docs/fase-1-sri.md) |
+| `libs/einvoice` | Emisión y ciclo de vida de comprobantes (BD + colas), correo con XML + RIDE |
+| `libs/inventory` | Kárdex con costo promedio ponderado, stock por bodega, ajustes y transferencias — ver [docs/fase-2-catalogo.md](docs/fase-2-catalogo.md) |
 | `libs/licensing` | Licencias firmadas Ed25519 (emisión y verificación) |
 | `libs/shared-domain` | Reglas puras: validación de cédula/RUC, permisos, roles, plantillas de negocio |
 | `libs/shared-contracts` | Esquemas zod y tipos compartidos API ↔ frontend |
@@ -51,7 +54,7 @@ Usuarios de desarrollo (creados por el seed):
 
 ```bash
 pnpm test        # unitarias (cédula/RUC, licencias…)
-pnpm test:e2e    # API contra PostgreSQL real (base vektra_test): aislamiento entre empresas, secuenciales, auth
+pnpm test:e2e    # API contra PostgreSQL real (base vektra_test) y un SRI simulado: aislamiento, secuenciales, auth, facturación completa
 ```
 
 Las pruebas e2e no borran datos: cada ejecución crea empresas con RUC y correos aleatorios.

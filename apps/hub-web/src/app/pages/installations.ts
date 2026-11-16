@@ -75,6 +75,30 @@ import { Toast } from '../hub';
                 }
               </td>
             </ng-container>
+            <ng-container matColumnDef="health">
+              <th mat-header-cell *matHeaderCellDef>Salud SRI</th>
+              <td mat-cell *matCellDef="let i">
+                @for (h of health(i); track h.ruc) {
+                  <div class="small">
+                    <strong>{{ h.name }}</strong>
+                    @if (h.certDays === null) {
+                      <span class="vk-badge danger">sin firma</span>
+                    } @else if (h.certDays <= 30) {
+                      <span class="vk-badge" [class.warn]="h.certDays > 5" [class.danger]="h.certDays <= 5">firma: {{ h.certDays }} d</span>
+                    }
+                    @if (h.rejected24h > 0) {
+                      <span class="vk-badge danger">{{ h.rejected24h }} rechazos 24 h</span>
+                    }
+                    @if (h.pending > 0) {
+                      <span class="vk-badge warn">{{ h.pending }} pendientes</span>
+                    }
+                    <span class="vk-muted"> · {{ h.authorized24h }} autorizados 24 h</span>
+                  </div>
+                } @empty {
+                  <span class="vk-muted small">Sin reporte</span>
+                }
+              </td>
+            </ng-container>
             <ng-container matColumnDef="status">
               <th mat-header-cell *matHeaderCellDef>Estado</th>
               <td mat-cell *matCellDef="let i">
@@ -154,7 +178,7 @@ export class InstallationsPage implements OnInit {
   protected readonly plans = signal<PlanItem[]>([]);
   protected readonly secret = signal<InstallationCredentials | null>(null);
   protected readonly offline = signal<{ code: string; expiresAt: string } | null>(null);
-  protected readonly columns = ['name', 'plan', 'seen', 'status', 'actions'];
+  protected readonly columns = ['name', 'plan', 'seen', 'health', 'status', 'actions'];
   protected readonly statusLabel: Record<string, string> = { ACTIVE: 'Activa', SUSPENDED: 'Suspendida', CANCELLED: 'Cancelada' };
   protected readonly form = new FormGroup({
     clientId: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
@@ -175,6 +199,15 @@ export class InstallationsPage implements OnInit {
 
   private async load(): Promise<void> {
     this.items.set(await firstValueFrom(this.http.get<InstallationItem[]>('/api/hub/installations')));
+  }
+
+  /** Telemetría por empresa enviada por la instancia en cada validación de licencia. */
+  protected health(i: InstallationItem) {
+    const companies = (i.lastReport?.['companies'] as { ruc: string; name: string; certificateValidTo: string | null; rejected24h: number; pending: number; authorized24h: number }[] | undefined) ?? [];
+    return companies.map((c) => ({
+      ...c,
+      certDays: c.certificateValidTo ? Math.floor((new Date(c.certificateValidTo).getTime() - Date.now()) / 86_400_000) : null,
+    }));
   }
 
   /** Contacto en las últimas 2 h = sana (valida cada hora). */

@@ -11,6 +11,8 @@ import { PERMISSIONS } from '@vektra/shared-domain';
 import { createPrismaClient } from '../src/lib/client';
 import { provisionTenant } from '../src/lib/provision-tenant';
 import { seedSriConfig } from '../src/lib/sri-seed';
+import { ensureCatalogDefaults } from '../src/lib/catalog-defaults';
+import { withContext } from '../src/lib/client';
 import { uuidv7 } from '../src/lib/uuid';
 
 config({ path: join(__dirname, '../../../.env'), quiet: true });
@@ -31,6 +33,11 @@ async function main() {
     console.log(`✔ ${PERMISSIONS.length} permisos sincronizados`);
     await seedSriConfig(prisma);
     console.log('✔ Configuración tributaria SRI (tarifas, catálogos, parámetros)');
+
+    // Catálogo base para empresas existentes (unidades, listas de precios)
+    for (const t of await prisma.tenant.findMany({ select: { id: true } })) {
+      await withContext(prisma, { tenantId: t.id }, (tx) => ensureCatalogDefaults(tx, t.id));
+    }
 
     const supportEmail = process.env['SEED_SUPPORT_EMAIL'];
     const supportPassword = process.env['SEED_SUPPORT_PASSWORD'];

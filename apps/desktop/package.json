@@ -1,0 +1,9 @@
+{
+  "name": "vektra-caja",
+  "productName": "Vektra Caja",
+  "version": "0.4.0",
+  "private": true,
+  "description": "Caja de escritorio de Vektra POS: factura sin internet y sincroniza sola",
+  "author": "Vektra Systems",
+  "main": "main.js"
+}

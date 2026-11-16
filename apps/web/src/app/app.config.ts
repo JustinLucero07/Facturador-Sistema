@@ -13,6 +13,7 @@ import { MAT_FORM_FIELD_DEFAULT_OPTIONS } from '@angular/material/form-field';
 import { MatPaginatorIntl } from '@angular/material/paginator';
 import { provideRouter, withComponentInputBinding } from '@angular/router';
 import { appRoutes } from './app.routes';
+import { RuntimeService } from './core/runtime';
 import { AuthService } from './core/auth.service';
 import { authInterceptor } from './core/http';
 
@@ -43,6 +44,12 @@ export const appConfig: ApplicationConfig = {
     { provide: MatPaginatorIntl, useFactory: spanishPaginator },
     { provide: MAT_FORM_FIELD_DEFAULT_OPTIONS, useValue: { appearance: 'outline', subscriptSizing: 'dynamic' } },
     // Recuperar la sesión (cookie de refresh) antes de resolver la primera ruta.
-    provideAppInitializer(() => inject(AuthService).restore()),
+    // Modo (web o caja de escritorio) y sesión (cookie de refresh) antes de resolver la primera ruta.
+    provideAppInitializer(async () => {
+      const runtime = inject(RuntimeService);
+      const auth = inject(AuthService);
+      await runtime.load();
+      await auth.restore();
+    }),
   ],
 };

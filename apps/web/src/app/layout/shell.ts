@@ -29,10 +29,31 @@ interface NavSection {
 const NAV: NavSection[] = [
   { title: '', items: [{ label: 'Inicio', icon: 'space_dashboard', link: '/' }] },
   {
+    title: 'Facturación',
+    items: [
+      { label: 'Punto de venta', icon: 'point_of_sale', link: '/pos', permission: 'sales.create' },
+      { label: 'Nueva factura', icon: 'add_notes', link: '/facturacion/nueva', permission: 'sales.create' },
+      { label: 'Comprobantes', icon: 'receipt_long', link: '/facturacion/comprobantes', permission: 'einvoice.read' },
+      { label: 'Firma y correo', icon: 'key', link: '/facturacion/configuracion', permission: 'einvoice.read' },
+      { label: 'Impuestos', icon: 'percent', link: '/impuestos', permission: 'catalog.read' },
+    ],
+  },
+  {
+    title: 'Inventario',
+    items: [
+      { label: 'Productos', icon: 'inventory_2', link: '/productos', permission: 'catalog.read' },
+      { label: 'Clientes y proveedores', icon: 'contacts', link: '/clientes', permission: 'customers.read' },
+      { label: 'Existencias y kárdex', icon: 'warehouse', link: '/inventario', permission: 'inventory.read' },
+      { label: 'Catálogos', icon: 'category', link: '/catalogos', permission: 'catalog.read' },
+      { label: 'Importar Excel', icon: 'upload_file', link: '/importar', permission: 'catalog.read' },
+    ],
+  },
+  {
     title: 'Administración',
     items: [
       { label: 'Empresa', icon: 'storefront', link: '/empresa', permission: 'company.read' },
       { label: 'Establecimientos', icon: 'store', link: '/establecimientos', permission: 'structure.read' },
+      { label: 'Cajas de escritorio', icon: 'desktop_windows', link: '/cajas-escritorio', permission: 'structure.read' },
       { label: 'Usuarios', icon: 'group', link: '/usuarios', permission: 'users.read' },
       { label: 'Roles y permisos', icon: 'admin_panel_settings', link: '/roles', permission: 'roles.read' },
       { label: 'Auditoría', icon: 'history', link: '/auditoria', permission: 'audit.read' },

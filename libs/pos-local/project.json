@@ -1,0 +1,9 @@
+{
+  "name": "pos-local",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/pos-local/src",
+  "projectType": "library",
+  "tags": [],
+  "// targets": "to see all targets run: nx show project pos-local --web",
+  "targets": {}
+}

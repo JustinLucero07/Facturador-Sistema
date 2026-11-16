@@ -9,6 +9,7 @@ const schema = z.object({
   LICENSE_PUBLIC_KEY: z.string().default(''),
   LICENSE_CHECK_MINUTES: z.coerce.number().int().min(1).default(60),
   APP_VERSION: z.string().default('0.0.1'),
+  MASTER_KEY: z.string().refine((v) => Buffer.from(v, 'base64').length === 32, 'MASTER_KEY debe ser 32 bytes en base64'),
 });
 export type WorkerEnv = z.infer<typeof schema>;
 
@@ -18,14 +19,4 @@ export function workerEnv(): WorkerEnv {
   return cached;
 }
 
-/** redis://[:password@]host:port[/db] → opciones de conexión para BullMQ. */
-export function redisConnection(url: string) {
-  const u = new URL(url);
-  return {
-    host: u.hostname,
-    port: Number(u.port || 6379),
-    ...(u.password ? { password: decodeURIComponent(u.password) } : {}),
-    ...(u.pathname.length > 1 ? { db: Number(u.pathname.slice(1)) } : {}),
-    maxRetriesPerRequest: null,
-  };
-}
+export { redisConnection } from '@vektra/einvoice';

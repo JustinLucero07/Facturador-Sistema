@@ -5,3 +5,6 @@ export * from './lib/structure';
 export * from './lib/company';
 export * from './lib/hub';
 export * from './lib/einvoice';
+export * from './lib/catalog';
+export * from './lib/pos';
+export * from './lib/sync';

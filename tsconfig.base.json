@@ -24,7 +24,13 @@
       "@vektra/hub-db": ["./libs/hub-db/src/index.ts"],
       "@vektra/nest-common": ["./libs/nest-common/src/index.ts"],
       "@vektra/sri-core": ["./libs/sri-core/src/index.ts"],
-      "@vektra/einvoice": ["./libs/einvoice/src/index.ts"]
+      "@vektra/einvoice": ["./libs/einvoice/src/index.ts"],
+      "@vektra/sri-core/calc": ["./libs/sri-core/src/lib/calc.ts"],
+      "@vektra/sri-core/access-key": ["./libs/sri-core/src/lib/access-key.ts"],
+      "@vektra/db/uuid": ["./libs/db/src/lib/uuid.ts"],
+      "@vektra/pos-local": ["./libs/pos-local/src/index.ts"],
+      "@vektra/sri-core/testing": ["./libs/sri-core/src/testing.ts"],
+      "@vektra/inventory": ["./libs/inventory/src/index.ts"]
     },
     "types": ["node"]
   },

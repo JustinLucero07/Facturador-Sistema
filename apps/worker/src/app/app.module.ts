@@ -1,21 +1,17 @@
 import { InjectQueue, BullModule, Processor, WorkerHost } from '@nestjs/bullmq';
-import { Injectable, Logger, Module, OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
-import { createPrismaClient, PrismaClient } from '@vektra/db';
+import { Injectable, Logger, Module, OnApplicationBootstrap } from '@nestjs/common';
+import { SRI_QUEUE } from '@vektra/einvoice';
 import type { Job, Queue } from 'bullmq';
 import { redisConnection, workerEnv } from './env';
 import { checkLicenseWithHub } from './license-check';
+import { WorkerPrisma } from './prisma';
+import { SriProcessor, SriScheduler } from './sri.processor';
+
+export { WorkerPrisma };
 
 export const SYSTEM_QUEUE = 'system';
 
-@Injectable()
-export class WorkerPrisma implements OnModuleDestroy {
-  readonly client: PrismaClient = createPrismaClient(workerEnv().DATABASE_URL);
-  async onModuleDestroy() {
-    await this.client.$disconnect();
-  }
-}
-
-/** Tareas del sistema. En la Fase 1 se agregan las colas del SRI (envío/autorización) y correo. */
+/** Tareas del sistema (licencia). La cola del SRI está en sri.processor.ts. */
 @Processor(SYSTEM_QUEUE)
 export class SystemProcessor extends WorkerHost {
   constructor(private readonly prisma: WorkerPrisma) {
@@ -50,8 +46,8 @@ export class Scheduler implements OnApplicationBootstrap {
 @Module({
   imports: [
     BullModule.forRoot({ connection: redisConnection(workerEnv().REDIS_URL) }),
-    BullModule.registerQueue({ name: SYSTEM_QUEUE }),
+    BullModule.registerQueue({ name: SYSTEM_QUEUE }, { name: SRI_QUEUE }),
   ],
-  providers: [WorkerPrisma, SystemProcessor, Scheduler],
+  providers: [WorkerPrisma, SystemProcessor, Scheduler, SriProcessor, SriScheduler],
 })
 export class AppModule {}

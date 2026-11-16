@@ -1,4 +1,4 @@
-import { assertPaymentsMatch, CalculationError, computeInvoice } from './calc';
+import { assertPaymentsMatch, CalculationError, computeInvoice, distributeDiscount } from './calc';
 
 const IVA15 = { taxCode: '2', percentageCode: '4', rate: 15 };
 const IVA5 = { taxCode: '2', percentageCode: '5', rate: 5 };
@@ -82,5 +82,26 @@ describe('assertPaymentsMatch', () => {
   });
   it('rechaza diferencias', () => {
     expect(() => assertPaymentsMatch([{ amount: '10.00' }], '12.50')).toThrow(/suman 10.00/);
+  });
+});
+
+describe('distributeDiscount (descuento global del POS)', () => {
+  it('reparte en proporción y suma exactamente el descuento', () => {
+    const parts = distributeDiscount([850, 15, 1300], 217);
+    expect(parts.reduce((a, b) => a + b, 0)).toBe(217);
+    expect(parts).toEqual([85, 1, 131]);
+  });
+  it('el residuo va a la línea de mayor valor', () => {
+    expect(distributeDiscount([100, 100, 100], 100)).toEqual([34, 33, 33]);
+  });
+  it('100 % deja cada línea en cero, nunca negativa', () => {
+    expect(distributeDiscount([1, 999], 1000)).toEqual([1, 999]);
+  });
+  it('rechaza un descuento mayor al total', () => {
+    expect(() => distributeDiscount([500], 501)).toThrow(CalculationError);
+  });
+  it('sin descuento o sin líneas con valor devuelve ceros', () => {
+    expect(distributeDiscount([0, 0], 10)).toEqual([0, 0]);
+    expect(distributeDiscount([300], 0)).toEqual([0]);
   });
 });

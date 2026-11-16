@@ -1,0 +1,156 @@
+<h2 mat-dialog-title>{{ productId ? 'Editar producto' : 'Nuevo producto' }}</h2>
+<mat-dialog-content>
+  @if (lk(); as lk) {
+    <mat-tab-group animationDuration="0ms">
+      <mat-tab label="General">
+        <div class="tab">
+          <div class="vk-form-grid">
+            <mat-form-field>
+              <mat-label>Código</mat-label>
+              <input matInput [(ngModel)]="code" required maxlength="25" />
+              @if (errors()['code']) { <mat-hint class="err">{{ errors()['code'] }}</mat-hint> }
+            </mat-form-field>
+            <mat-form-field class="span2">
+              <mat-label>Nombre (aparece en la factura)</mat-label>
+              <input matInput [(ngModel)]="name" required maxlength="300" />
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Categoría</mat-label>
+              <mat-select [(ngModel)]="categoryId">
+                <mat-option [value]="null">—</mat-option>
+                @for (c of lk.categories; track c.id) { <mat-option [value]="c.id">{{ c.name }}</mat-option> }
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Marca</mat-label>
+              <mat-select [(ngModel)]="brandId">
+                <mat-option [value]="null">—</mat-option>
+                @for (b of lk.brands; track b.id) { <mat-option [value]="b.id">{{ b.name }}</mat-option> }
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Unidad base</mat-label>
+              <mat-select [(ngModel)]="unitId">
+                @for (u of lk.units; track u.id) { <mat-option [value]="u.id">{{ u.name }} ({{ u.code }})</mat-option> }
+              </mat-select>
+              <mat-hint>En esta unidad se lleva el stock</mat-hint>
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>IVA</mat-label>
+              <mat-select [ngModel]="taxRateId" (ngModelChange)="onTaxChange($event)">
+                @for (t of lk.taxRates; track t.id) { <mat-option [value]="t.id">{{ t.name }}</mat-option> }
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Stock mínimo</mat-label>
+              <input matInput [(ngModel)]="minStock" inputmode="decimal" [disabled]="isService" />
+              <mat-hint>Para la alerta de stock bajo</mat-hint>
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Código auxiliar (SRI)</mat-label>
+              <input matInput [(ngModel)]="auxCode" maxlength="25" />
+              <mat-hint>Ej. materiales de construcción: F010401</mat-hint>
+            </mat-form-field>
+            <mat-form-field class="vk-full">
+              <mat-label>Códigos de barras</mat-label>
+              <mat-chip-grid #grid>
+                @for (b of barcodes; track b) {
+                  <mat-chip-row (removed)="removeFrom(barcodes, b)">{{ b }} <button matChipRemove aria-label="Quitar"><span class="material-symbols-outlined">close</span></button></mat-chip-row>
+                }
+                <input placeholder="Escanee o escriba y presione Enter" [matChipInputFor]="grid" (matChipInputTokenEnd)="addBarcode(barcodes, $event)" />
+              </mat-chip-grid>
+              @if (errors()['barcodes']) { <mat-hint class="err">{{ errors()['barcodes'] }}</mat-hint> }
+            </mat-form-field>
+            <mat-form-field class="vk-full">
+              <mat-label>Descripción (opcional)</mat-label>
+              <textarea matInput rows="2" [(ngModel)]="description"></textarea>
+            </mat-form-field>
+          </div>
+          <div class="row">
+            <mat-slide-toggle [(ngModel)]="isService">Es un servicio (no lleva stock)</mat-slide-toggle>
+            <mat-slide-toggle [(ngModel)]="active">Activo</mat-slide-toggle>
+            <label class="img">
+              <input type="file" accept="image/*" (change)="pickImage($event)" />
+              @if (imageUrl) { <img [src]="imageUrl" alt="Imagen del producto" /> } @else { <span class="material-symbols-outlined">add_photo_alternate</span> }
+              <span>Imagen</span>
+            </label>
+          </div>
+          @if (stock().length) {
+            <p class="vk-muted small">
+              Stock: @for (s of stock(); track s.warehouse) { {{ s.warehouse }}: <strong>{{ +s.quantity }}</strong>&nbsp;&nbsp; }
+              @if (avgCost()) { · Costo promedio: ${{ (+avgCost()!).toFixed(4) }} }
+            </p>
+          }
+        </div>
+      </mat-tab>
+
+      <mat-tab label="Precios">
+        <div class="tab">
+          <div class="price-head">
+            <mat-button-toggle-group [(ngModel)]="pricesWithTax" aria-label="Forma de ingresar precios">
+              <mat-button-toggle [value]="true">Con IVA (PVP)</mat-button-toggle>
+              <mat-button-toggle [value]="false">Sin IVA</mat-button-toggle>
+            </mat-button-toggle-group>
+            <span class="vk-muted small">Se guardan sin IVA (como en el XML). IVA del producto: {{ +rate() }}%</span>
+          </div>
+          <table class="grid">
+            <thead>
+              <tr>
+                <th>Unidad</th>
+                @for (l of lk.priceLists; track l.id) { <th>{{ l.name }}</th> }
+              </tr>
+            </thead>
+            <tbody>
+              @for (u of priceUnits(); track u) {
+                <tr>
+                  <td>{{ unitName(u) }}</td>
+                  @for (l of lk.priceLists; track l.id) {
+                    <td><input class="cell" inputmode="decimal" [ngModel]="shownPrice(l.id, u)" (change)="setPrice(l.id, u, $any($event.target).value)" placeholder="—" /></td>
+                  }
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </mat-tab>
+
+      <mat-tab label="Presentaciones">
+        <div class="tab">
+          <p class="vk-muted">Ej.: CAJA = 12 unidades. Al vender una caja se descuentan 12 del stock. Cada presentación puede tener su código de barras y su precio (pestaña Precios).</p>
+          @for (p of presentations; track $index; let i = $index) {
+            <div class="pres">
+              <mat-form-field>
+                <mat-label>Presentación</mat-label>
+                <mat-select [(ngModel)]="p.unitId">
+                  @for (u of lk.units; track u.id) {
+                    @if (u.id !== unitId) { <mat-option [value]="u.id">{{ u.name }} ({{ u.code }})</mat-option> }
+                  }
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field class="factor">
+                <mat-label>Contiene (unidades base)</mat-label>
+                <input matInput [(ngModel)]="p.factor" inputmode="decimal" />
+              </mat-form-field>
+              <mat-form-field class="bc">
+                <mat-label>Códigos de barras</mat-label>
+                <mat-chip-grid #g2>
+                  @for (b of p.barcodes; track b) {
+                    <mat-chip-row (removed)="removeFrom(p.barcodes, b)">{{ b }} <button matChipRemove aria-label="Quitar"><span class="material-symbols-outlined">close</span></button></mat-chip-row>
+                  }
+                  <input [matChipInputFor]="g2" (matChipInputTokenEnd)="addBarcode(p.barcodes, $event)" />
+                </mat-chip-grid>
+              </mat-form-field>
+              <button matIconButton (click)="removePresentation(i)" aria-label="Quitar presentación"><span class="material-symbols-outlined">delete</span></button>
+            </div>
+          }
+          <button matButton (click)="addPresentation()"><span class="material-symbols-outlined">add</span> Agregar presentación</button>
+          @if (errors()['units']) { <p class="err">{{ errors()['units'] }}</p> }
+        </div>
+      </mat-tab>
+    </mat-tab-group>
+  }
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button matButton mat-dialog-close>Cancelar</button>
+  <button matButton="filled" (click)="save()" [disabled]="saving() || !code || !name">Guardar</button>
+</mat-dialog-actions>

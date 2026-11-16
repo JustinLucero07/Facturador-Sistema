@@ -26,6 +26,7 @@ export function applyTestEnv(overrides: Record<string, string> = {}): void {
     INSTALLATION_ID: '',
     AUTH_MAX_FAILED_ATTEMPTS: '5',
     AUTH_LOCK_MINUTES: '15',
+    REDIS_URL: 'redis://127.0.0.1:6390/5',
     ...overrides,
   });
 }

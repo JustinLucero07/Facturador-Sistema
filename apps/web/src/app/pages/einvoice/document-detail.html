@@ -1,0 +1,149 @@
+<div class="vk-page">
+  <a routerLink="/facturacion/comprobantes" class="back"><span class="material-symbols-outlined">arrow_back</span> Comprobantes</a>
+
+  @if (doc(); as d) {
+    <div class="vk-page-header">
+      <div>
+        <h1>Factura <span class="vk-mono">{{ d.number }}</span></h1>
+        <p>{{ d.buyerName }} · <span class="vk-mono">{{ d.buyerId }}</span> · {{ d.issueDate | date: 'longDate' : 'UTC' }}</p>
+      </div>
+      <div class="vk-actions">
+        <button matButton="outlined" (click)="download('ride')"><span class="material-symbols-outlined">picture_as_pdf</span> RIDE</button>
+        <button matButton="outlined" (click)="download('xml')"><span class="material-symbols-outlined">code</span> XML</button>
+        @if (auth.can('einvoice.resend')) {
+          @if (d.status === 'AUTHORIZED') {
+            <button matButton="outlined" (click)="resendEmail()"><span class="material-symbols-outlined">forward_to_inbox</span> Enviar por correo</button>
+          }
+          @if (canRetry()) {
+            <button matButton="filled" (click)="retry()" [disabled]="busy()"><span class="material-symbols-outlined">send</span> Reenviar al SRI</button>
+          }
+        }
+      </div>
+    </div>
+
+    <section class="status vk-card" [class]="'status vk-card ' + statusClass[d.status]">
+      <div class="status-main">
+        <span class="material-symbols-outlined big">
+          @switch (d.status) {
+            @case ('AUTHORIZED') { verified }
+            @case ('RETURNED') { error }
+            @case ('NOT_AUTHORIZED') { cancel }
+            @case ('CONTINGENCY') { cloud_off }
+            @default { progress_activity }
+          }
+        </span>
+        <div>
+          <div class="status-label">{{ label(d.status) }} @if (d.environment === 1) { <span class="vk-badge warn">PRUEBAS</span> }</div>
+          @if (d.status === 'AUTHORIZED') {
+            <div class="vk-muted">Autorizada el {{ d.authorizedAt | date: 'medium' }}</div>
+          } @else if (inProgress()) {
+            <div class="vk-muted">
+              @if (d.status === 'CONTINGENCY') {
+                Sin respuesta del SRI. Se reintenta automáticamente ({{ d.attempts }} intento(s)); la venta es válida y se autorizará cuando el SRI responda.
+              } @else {
+                Procesando en el SRI… esta página se actualiza sola.
+              }
+            </div>
+          } @else if (d.status === 'RETURNED' || d.status === 'NOT_AUTHORIZED') {
+            <div class="vk-muted">Revise el motivo, corrija lo necesario y reenvíe: se usará la misma clave de acceso y número.</div>
+          }
+        </div>
+      </div>
+      <div class="key">
+        <div class="vk-muted small">Clave de acceso / N.º de autorización</div>
+        <button class="key-value vk-mono" (click)="copy(d.accessKey)" matTooltip="Copiar">{{ d.accessKey }}</button>
+      </div>
+    </section>
+
+    @if (d.messages.length) {
+      <section class="vk-card msgs">
+        <h2>Mensajes del SRI</h2>
+        @for (m of d.messages; track $index) {
+          <div class="msg" [class.error]="m.isError">
+            <span class="material-symbols-outlined">{{ m.isError ? 'error' : 'info' }}</span>
+            <div>
+              <strong>{{ m.title }}</strong> <span class="vk-muted vk-mono">({{ m.identifier }})</span>
+              <div>{{ m.hint }}</div>
+              @if (m.additionalInfo && m.additionalInfo !== m.hint) {
+                <div class="vk-muted small tech">{{ m.additionalInfo }}</div>
+              }
+            </div>
+          </div>
+        }
+      </section>
+    }
+
+    <div class="grid">
+      <section class="vk-card">
+        <h2>Detalle</h2>
+        <div class="vk-table-wrap flat">
+          <table class="simple">
+            <thead><tr><th>Descripción</th><th class="r">Cant.</th><th class="r">P. unit.</th><th class="r">Desc.</th><th>IVA</th><th class="r">Total</th></tr></thead>
+            <tbody>
+              @for (l of d.lines; track $index) {
+                <tr>
+                  <td>{{ l.description }}</td>
+                  <td class="r">{{ +l.quantity }}</td>
+                  <td class="r">{{ +l.unitPrice | currency: 'USD' : 'symbol' : '1.2-6' }}</td>
+                  <td class="r">{{ l.discount | currency }}</td>
+                  <td>{{ l.taxLabel }}</td>
+                  <td class="r">{{ l.subtotal | currency }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="vk-card">
+        <h2>Totales</h2>
+        <dl class="kv">
+          @for (t of d.taxSummary; track t.label) {
+            <dt>Subtotal {{ t.label }}</dt><dd>{{ t.base | currency }}</dd>
+          }
+          @for (t of d.taxSummary; track t.label) {
+            @if (t.amount !== '0.00') {
+              <dt>IVA {{ t.label }}</dt><dd>{{ t.amount | currency }}</dd>
+            }
+          }
+          <dt class="grand">Total</dt><dd class="grand">{{ d.total | currency }}</dd>
+        </dl>
+        <h3>Pagos</h3>
+        @for (p of d.payments; track $index) {
+          <div class="pay"><span>{{ p.label }}</span><span>{{ p.amount | currency }}</span></div>
+        }
+        <h3>Correo</h3>
+        <div class="vk-muted">
+          @switch (d.emailStatus) {
+            @case ('SENT') { Enviado a {{ d.buyerEmail }} }
+            @case ('PENDING') { Pendiente (se envía al autorizarse) }
+            @case ('FAILED') { Falló: {{ d.emailError }} }
+            @default { {{ d.emailError ?? 'No se envía (sin correo del cliente)' }} }
+          }
+        </div>
+      </section>
+    </div>
+
+    <section class="vk-card">
+      <h2>Historial</h2>
+      <ol class="timeline">
+        @for (e of d.events; track $index) {
+          <li>
+            <span class="dot" [class]="'dot ' + statusClass[e.to]"></span>
+            <div>
+              <strong>{{ label(e.to) }}</strong><span class="vk-muted small when">{{ e.at | date: 'medium' }}</span>
+              @if (e.note) {
+                <div class="vk-muted">{{ e.note }}</div>
+              }
+              @for (m of e.messages; track $index) {
+                <div class="small" [class.err]="m.isError">{{ m.identifier }} · {{ m.title }}</div>
+              }
+            </div>
+          </li>
+        }
+      </ol>
+    </section>
+  } @else {
+    <div class="vk-empty">Cargando…</div>
+  }
+</div>

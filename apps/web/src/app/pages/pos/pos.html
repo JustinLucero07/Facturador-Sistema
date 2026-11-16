@@ -1,0 +1,149 @@
+<div class="pos">
+  <header class="bar">
+    @if (!rt.desktop()) {
+      <a routerLink="/" class="back" matTooltip="Volver al menú"><span class="material-symbols-outlined">arrow_back</span></a>
+    }
+    <div class="brand">Vektra <strong>{{ rt.desktop() ? 'Caja' : 'POS' }}</strong></div>
+    <button matButton class="point" [matMenuTriggerFor]="pointMenu">
+      <span class="material-symbols-outlined">point_of_sale</span>
+      {{ emissionPoint()?.label ?? 'Elegir caja' }}
+    </button>
+    @if (syncLabel(); as label) {
+      <button class="sync" [class]="'sync ' + syncLevel()" [matMenuTriggerFor]="syncMenu" [attr.aria-label]="'Sincronización: ' + label">
+        <span class="material-symbols-outlined">{{ rt.info().online ? 'cloud_done' : 'cloud_off' }}</span>{{ label }}
+      </button>
+      <mat-menu #syncMenu="matMenu">
+        <button mat-menu-item (click)="syncNow()"><span class="material-symbols-outlined">sync</span><span>Sincronizar ahora</span></button>
+        <button mat-menu-item (click)="pending()"><span class="material-symbols-outlined">pending_actions</span><span>Ver pendientes</span></button>
+      </mat-menu>
+    }
+    <mat-menu #pointMenu="matMenu">
+      @for (p of config()?.emissionPoints ?? []; track p.id) {
+        <button mat-menu-item (click)="changePoint(p.id)">{{ p.label }}</button>
+      }
+    </mat-menu>
+    @if (config()?.environment === 1) { <span class="vk-badge warn">SRI pruebas</span> }
+    <span class="spacer"></span>
+    @if (session(); as s) {
+      <span class="cash-info">Caja abierta · {{ s.invoices }} ventas · {{ s.totalSales | currency }}</span>
+      <button matButton [matMenuTriggerFor]="cashMenu"><span class="material-symbols-outlined">payments</span> Caja</button>
+      <mat-menu #cashMenu="matMenu" xPosition="before">
+        <button mat-menu-item (click)="cashMovement()"><span class="material-symbols-outlined">swap_vert</span><span>Ingreso / egreso</span></button>
+        <button mat-menu-item (click)="partialReport()"><span class="material-symbols-outlined">receipt_long</span><span>Corte parcial (imprimir)</span></button>
+        <button mat-menu-item (click)="closeCash()"><span class="material-symbols-outlined">lock</span><span>Arqueo y cierre</span></button>
+      </mat-menu>
+    }
+    <button matIconButton [matMenuTriggerFor]="prefMenu" aria-label="Preferencias de impresión"><span class="material-symbols-outlined">print</span></button>
+    <mat-menu #prefMenu="matMenu" xPosition="before">
+      <button mat-menu-item (click)="updatePrefs({ paperWidth: 80 })">{{ prefs().paperWidth === 80 ? '✓ ' : '' }}Papel 80 mm</button>
+      <button mat-menu-item (click)="updatePrefs({ paperWidth: 58 })">{{ prefs().paperWidth === 58 ? '✓ ' : '' }}Papel 58 mm</button>
+      <button mat-menu-item (click)="updatePrefs({ autoPrint: !prefs().autoPrint })">{{ prefs().autoPrint ? '✓ ' : '' }}Imprimir automáticamente</button>
+      @if (printers().length) {
+        <div class="menu-label">Impresora</div>
+        <button mat-menu-item (click)="updatePrefs({ printerName: null })">{{ !prefs().printerName ? '✓ ' : '' }}Predeterminada del sistema</button>
+        @for (p of printers(); track p.name) {
+          <button mat-menu-item (click)="updatePrefs({ printerName: p.name })">{{ prefs().printerName === p.name ? '✓ ' : '' }}{{ p.displayName || p.name }}</button>
+        }
+      }
+    </mat-menu>
+    <button matButton class="user" [matMenuTriggerFor]="userMenu">{{ auth.session()?.user?.fullName }}</button>
+    <mat-menu #userMenu="matMenu" xPosition="before">
+      <button mat-menu-item (click)="logout()"><span class="material-symbols-outlined">logout</span><span>Cerrar sesión</span></button>
+    </mat-menu>
+  </header>
+
+  @if (!session() && config()) {
+    <div class="closed">
+      <span class="material-symbols-outlined">lock</span>
+      <h2>Caja cerrada</h2>
+      <p class="vk-muted">{{ emissionPoint()?.label }}</p>
+      @if (auth.can('cash.operate')) {
+        <button matButton="filled" class="big-btn" (click)="openCash()">Abrir caja</button>
+      } @else {
+        <p>No tiene permiso para abrir caja.</p>
+      }
+    </div>
+  } @else {
+    <main class="main">
+      <section class="cart">
+        <div class="search">
+          <vk-product-picker
+            label="Escanee o busque un producto (F2)"
+            [priceListId]="customer().priceListId ?? undefined"
+            (picked)="add($event)"
+            (notFound)="notFound($event)"
+          />
+        </div>
+
+        <div class="lines" role="list">
+          @for (l of lines(); track l.key; let i = $index) {
+            <div class="line" role="listitem" [class.sel]="selected() === i" (click)="selected.set(i)" (keydown.enter)="edit(i)" (dblclick)="edit(i)">
+              <div class="info">
+                <div class="name">{{ l.name }}</div>
+                <div class="meta">
+                  <span class="vk-mono">{{ l.code }}</span> · PVP {{ pvp(l) | currency }} · IVA {{ l.taxLabel }}
+                  @if (+l.discount > 0) { · <span class="disc">desc. {{ l.discount | currency }}</span> }
+                  @if (l.stock !== null && +l.stock < +l.quantity) { · <span class="low">stock {{ +l.stock }}</span> }
+                </div>
+              </div>
+              <div class="qty">
+                <button type="button" (click)="inc(i, -1); $event.stopPropagation()" aria-label="Menos">−</button>
+                <button type="button" class="q" (click)="edit(i); $event.stopPropagation()" aria-label="Editar cantidad">{{ +l.quantity }}</button>
+                <button type="button" (click)="inc(i, 1); $event.stopPropagation()" aria-label="Más">+</button>
+              </div>
+              <div class="amt">{{ lineTotal(l) | currency }}</div>
+              <button matIconButton (click)="remove(i); $event.stopPropagation()" aria-label="Quitar"><span class="material-symbols-outlined">close</span></button>
+            </div>
+          } @empty {
+            <div class="empty">
+              <span class="material-symbols-outlined">barcode_scanner</span>
+              <p>Escanee un producto o búsquelo por nombre</p>
+              <p class="vk-muted keys">F2 buscar · F4 cliente · F8 descuento · F12 cobrar · Esc vaciar · +/− cantidad · Supr quitar</p>
+            </div>
+          }
+        </div>
+      </section>
+
+      <aside class="side">
+        <button class="customer" (click)="chooseCustomer()">
+          <span class="material-symbols-outlined">{{ customer().idType === '07' ? 'person_outline' : 'person' }}</span>
+          <span class="ctext">
+            <strong>{{ customer().name }}</strong>
+            <span class="vk-muted">{{ customer().idType === '07' ? 'Toque para identificar (F4)' : customer().id }}{{ customer().priceListName ? ' · ' + customer().priceListName : '' }}</span>
+          </span>
+        </button>
+        @if (quoteId()) { <div class="vk-badge brand quote-badge">Facturando proforma</div> }
+
+        <div class="totals">
+          @if (totals(); as t) {
+            @for (g of t.taxGroups; track g.percentageCode) {
+              <div class="row"><span>Subtotal {{ +g.rate }}%</span><span>{{ g.base | currency }}</span></div>
+            }
+            @if (+t.totalDiscount > 0) { <div class="row"><span>Descuento</span><span>−{{ t.totalDiscount | currency }}</span></div> }
+            @for (g of t.taxGroups; track g.percentageCode) {
+              @if (+g.amount > 0) { <div class="row"><span>IVA {{ +g.rate }}%</span><span>{{ g.amount | currency }}</span></div> }
+            }
+            <div class="grand"><span>TOTAL</span><span>{{ t.total | currency }}</span></div>
+            <div class="vk-muted small">{{ lines().length }} línea(s) · {{ itemsCount() }} unidad(es)</div>
+          } @else {
+            <div class="grand muted"><span>TOTAL</span><span>$0,00</span></div>
+          }
+          @if (overLimit()) { <div class="warn">Supera el máximo para consumidor final: identifique al cliente</div> }
+        </div>
+
+        <button class="charge" (click)="charge()" [disabled]="!totals() || busy() || overLimit()">
+          {{ busy() ? 'Facturando…' : 'COBRAR (F12)' }}
+        </button>
+
+        <div class="tools">
+          @if (canDiscount) { <button matButton="outlined" (click)="globalDiscount()" [disabled]="!lines().length">Descuento (F8)</button> }
+          @if (canQuote) {
+            <button matButton="outlined" (click)="saveQuote()" [disabled]="!lines().length">Guardar proforma</button>
+            <button matButton="outlined" (click)="loadQuote()">Abrir proforma</button>
+          }
+          <button matButton="outlined" (click)="clear()" [disabled]="!lines().length">Vaciar (Esc)</button>
+        </div>
+      </aside>
+    </main>
+  }
+</div>

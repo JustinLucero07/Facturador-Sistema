@@ -1,5 +1,5 @@
 import { Logger } from '@nestjs/common';
-import { PrismaClient } from '@vektra/db';
+import { PrismaClient, withContext } from '@vektra/db';
 import { evaluateLicense } from '@vektra/licensing';
 import type { WorkerEnv } from './env';
 
@@ -20,6 +20,7 @@ export async function checkLicenseWithHub(prisma: PrismaClient, env: WorkerEnv):
     establishments: Number(usage.establishments),
     emissionPoints: Number(usage.emission_points),
     users: Number(usage.users),
+    companies: await companyHealth(prisma),
   };
 
   try {
@@ -54,4 +55,33 @@ export async function checkLicenseWithHub(prisma: PrismaClient, env: WorkerEnv):
     });
     return 'failed';
   }
+}
+
+/** Telemetría por empresa para el panel del Hub: caducidad de firma y comprobantes con problemas. */
+async function companyHealth(prisma: PrismaClient) {
+  const tenants = await prisma.tenant.findMany({ where: { status: 'ACTIVE' }, select: { id: true, ruc: true, tradeName: true, legalName: true, environment: true } });
+  const since = new Date(Date.now() - 24 * 3600_000);
+  const out = [];
+  for (const t of tenants) {
+    out.push(
+      await withContext(prisma, { tenantId: t.id }, async (tx) => {
+        const cert = await tx.certificate.findFirst({ where: { active: true }, orderBy: { createdAt: 'desc' }, select: { validTo: true } });
+        const [rejected24h, pending, authorized24h] = await Promise.all([
+          tx.electronicDocument.count({ where: { status: { in: ['RETURNED', 'NOT_AUTHORIZED'] }, updatedAt: { gte: since } } }),
+          tx.electronicDocument.count({ where: { status: { in: ['SIGNED', 'SENT', 'RECEIVED', 'CONTINGENCY'] } } }),
+          tx.electronicDocument.count({ where: { status: 'AUTHORIZED', authorizedAt: { gte: since } } }),
+        ]);
+        return {
+          ruc: t.ruc,
+          name: t.tradeName ?? t.legalName,
+          environment: t.environment,
+          certificateValidTo: cert?.validTo.toISOString() ?? null,
+          rejected24h,
+          pending,
+          authorized24h,
+        };
+      }),
+    );
+  }
+  return out;
 }

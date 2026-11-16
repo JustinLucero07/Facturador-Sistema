@@ -1,3 +1,5 @@
+// eslint-disable-next-line @typescript-eslint/triple-slash-reference -- tipos de bwip-js solo vía "exports" (ver types/bwip-js.d.ts)
+/// <reference path="../../types/bwip-js.d.ts" />
 import bwipjs from 'bwip-js';
 import PDFDocument from 'pdfkit';
 import type { InvoiceDocument } from '../xml/invoice';

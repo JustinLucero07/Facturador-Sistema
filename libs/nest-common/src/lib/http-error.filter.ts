@@ -20,9 +20,14 @@ export class HttpErrorFilter implements ExceptionFilter {
       const status = exception.getStatus();
       const response = exception.getResponse();
       if (typeof response === 'object' && response !== null) {
-        const r = response as { message?: string | string[]; fields?: Record<string, string> };
+        const r = response as { message?: string | string[]; fields?: Record<string, string>; details?: string[] };
         const message = Array.isArray(r.message) ? r.message.join(', ') : r.message;
-        return { statusCode: status, message: this.translate(status, message), ...(r.fields ? { fields: r.fields } : {}) };
+        return {
+          statusCode: status,
+          message: this.translate(status, message),
+          ...(r.fields ? { fields: r.fields } : {}),
+          ...(r.details?.length ? { details: r.details } : {}),
+        };
       }
       return { statusCode: status, message: this.translate(status, String(response)) };
     }
@@ -42,6 +47,7 @@ export class HttpErrorFilter implements ExceptionFilter {
       403: 'No tiene permiso para realizar esta acción',
       404: 'Recurso no encontrado',
       409: 'Conflicto con datos existentes',
+      422: 'No se pudo procesar la solicitud',
       423: 'Recurso bloqueado',
       429: 'Demasiadas solicitudes, espere un momento',
     };

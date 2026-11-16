@@ -3,6 +3,7 @@ import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import type { ApiError } from '@vektra/shared-contracts';
 import { catchError, from, switchMap, throwError } from 'rxjs';
+import { RuntimeService } from './runtime';
 import { AuthService } from './auth.service';
 
 const AUTH_FREE = ['/api/auth/login', '/api/auth/refresh', '/api/auth/logout'];
@@ -47,14 +48,31 @@ export function apiFields(err: unknown): Record<string, string> {
   return {};
 }
 
+/** Caja de escritorio aún sin vincular: todo lleva a la pantalla de vinculación. */
+function unpairedRedirect() {
+  const rt = inject(RuntimeService);
+  return rt.desktop() && !rt.paired() ? inject(Router).createUrlTree(['/caja/vincular']) : null;
+}
+
 export const authGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
-  return auth.isAuthenticated() ? true : inject(Router).createUrlTree(['/ingresar']);
+  return unpairedRedirect() ?? (auth.isAuthenticated() ? true : inject(Router).createUrlTree(['/ingresar']));
 };
 
 export const guestGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
-  return auth.isAuthenticated() ? inject(Router).createUrlTree(['/']) : true;
+  return unpairedRedirect() ?? (auth.isAuthenticated() ? inject(Router).createUrlTree(['/']) : true);
+};
+
+/** La caja de escritorio solo tiene el punto de venta (la administración se hace en la web). */
+export const webOnlyGuard: CanActivateFn = () => (inject(RuntimeService).desktop() ? inject(Router).createUrlTree(['/pos']) : true);
+
+/** Vincular: libre si la caja no está vinculada; si ya lo está, solo un administrador. */
+export const pairingGuard: CanActivateFn = () => {
+  const rt = inject(RuntimeService);
+  if (!rt.desktop()) return inject(Router).createUrlTree(['/']);
+  if (!rt.paired()) return true;
+  return inject(AuthService).can('structure.manage') ? true : inject(Router).createUrlTree(['/pos']);
 };
 
 export function permissionGuard(...codes: string[]): CanActivateFn {

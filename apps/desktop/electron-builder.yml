@@ -1,0 +1,32 @@
+# Empaquetado de Vektra Caja. Se ejecuta con: pnpm nx package desktop
+appId: com.vektra.caja
+productName: Vektra Caja
+copyright: Vektra Systems
+electronVersion: 45.2.1
+directories:
+  app: ../../dist/apps/desktop/app
+  output: ../../dist/apps/desktop/release
+  buildResources: build
+# Sin dependencias nativas: SQLite viene con Electron (node:sqlite) y argon2 es WebAssembly.
+npmRebuild: false
+nodeGypRebuild: false
+asar: true
+extraResources:
+  - from: ../../dist/apps/web/browser
+    to: web
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  artifactName: Vektra-Caja-Setup-${version}.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  shortcutName: Vektra Caja
+linux:
+  target: [AppImage, deb]
+  category: Office
+  artifactName: Vektra-Caja-${version}-${arch}.${ext}
+  maintainer: Vektra Systems

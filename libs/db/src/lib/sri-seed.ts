@@ -79,6 +79,25 @@ export const SEED_SETTINGS: { key: string; value: unknown; note: string }[] = [
   },
   { key: 'xml_versions', value: { '01': '1.1.0' }, note: 'Versión del XML por tipo de comprobante (XSD disponibles: factura 1.1.0 y 2.1.0)' },
   { key: 'currency', value: 'DOLAR', note: 'Etiqueta <moneda>' },
+  {
+    key: 'payment_methods',
+    value: [
+      { method: 'efectivo', label: 'Efectivo', sriCode: '01', cash: true },
+      { method: 'tarjeta_debito', label: 'Tarjeta de débito', sriCode: '16', reference: true },
+      { method: 'tarjeta_credito', label: 'Tarjeta de crédito', sriCode: '19', reference: true },
+      { method: 'transferencia', label: 'Transferencia', sriCode: '20', reference: true },
+      { method: 'deuna', label: 'Deuna', sriCode: '20', reference: true },
+      { method: 'payphone', label: 'Payphone', sriCode: '19', reference: true },
+      { method: 'credito', label: 'Crédito', sriCode: '01', credit: true },
+    ],
+    note: 'Medio de pago del POS → código de la Tabla 24 (formas de pago). Confirme con su contador Deuna, Payphone y crédito.',
+  },
+  { key: 'desktop.max_offline_hours', value: 48, note: 'Horas que una caja de escritorio puede vender sin sincronizar con el servidor' },
+  {
+    key: 'offline.send_deadline_hours',
+    value: null,
+    note: 'Plazo para enviar al SRI un comprobante emitido sin conexión (error 65 "Fecha de emisión extemporánea"). La Ficha v2.34 no lo fija: confirmar con el contador. null = solo alertar por antigüedad',
+  },
   { key: 'provider_ruc', value: null, note: 'Ficha v2.34 Anexo 26 (Res. NAC-DGERCGC26-00000027): RUC del proveedor del sistema en <infoAdicional> "RUC Proveedor"' },
 ];
 

@@ -7,7 +7,8 @@ import { defineConfig } from 'vitest/config';
 
 const root = resolve(import.meta.dirname, '..');
 const paths: Record<string, string[]> = JSON.parse(readFileSync(resolve(root, 'tsconfig.base.json'), 'utf8')).compilerOptions.paths;
-const alias = Object.fromEntries(Object.entries(paths).map(([k, [v]]) => [k, resolve(root, v)]));
+// Coincidencia EXACTA: '@vektra/sri-core' no debe capturar '@vektra/sri-core/testing'.
+const alias = Object.entries(paths).map(([k, [v]]) => ({ find: new RegExp(`^${k.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}$`), replacement: resolve(root, v) }));
 
 export function nestVitestConfig(opts: { include: string[]; globalSetup?: string; sequential?: boolean; testTimeout?: number }) {
   return defineConfig({

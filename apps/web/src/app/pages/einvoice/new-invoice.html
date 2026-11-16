@@ -1,0 +1,219 @@
+<div class="vk-page">
+  <div class="vk-page-header">
+    <div>
+      <h1>Nueva factura</h1>
+      <p>Se firma con la firma electrónica de la empresa y se envía al SRI automáticamente.</p>
+    </div>
+    @if (config(); as cfg) {
+      <span class="vk-badge" [class.warn]="cfg.environment !== 2" [class.ok]="cfg.environment === 2">
+        Ambiente {{ cfg.environment === 2 ? 'PRODUCCIÓN' : 'PRUEBAS' }}
+      </span>
+    }
+  </div>
+
+  @if (config()?.certificate; as cert) {
+    @if (cert.level !== 'ok') {
+      <div class="banner" [class.danger]="cert.level !== 'warn'" role="alert">
+        <span class="material-symbols-outlined">{{ cert.level === 'warn' ? 'schedule' : 'key_off' }}</span>
+        <span>{{ cert.message }}</span>
+        <a routerLink="/facturacion/configuracion">Ir a firma electrónica</a>
+      </div>
+    }
+  }
+
+  <form [formGroup]="form" (ngSubmit)="submit()" class="layout">
+    <div class="main">
+      <section class="vk-card">
+        <div class="section-head">
+          <h2>Cliente</h2>
+          <mat-button-toggle-group formControlName="customerKind" aria-label="Tipo de cliente">
+            <mat-button-toggle value="final">Consumidor final</mat-button-toggle>
+            <mat-button-toggle value="identified">Con datos</mat-button-toggle>
+          </mat-button-toggle-group>
+        </div>
+        @if (form.controls.customerKind.value === 'identified') {
+          <div class="vk-form-grid" formGroupName="buyer">
+            <mat-form-field>
+              <mat-label>Tipo</mat-label>
+              <mat-select formControlName="idType" (selectionChange)="checkId()">
+                @for (t of config()?.idTypes ?? []; track t.code) {
+                  @if (t.code !== '07') {
+                    <mat-option [value]="t.code">{{ t.description }}</mat-option>
+                  }
+                }
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Cédula / RUC / Pasaporte</mat-label>
+              <input matInput formControlName="id" (blur)="checkId(); lookupCustomer()" class="vk-mono" />
+              @if (customerFound()) { <mat-hint>{{ customerFound() }}</mat-hint> }
+              <mat-error><vk-field-error [control]="form.controls.buyer.controls.id" /></mat-error>
+            </mat-form-field>
+            <mat-form-field class="vk-full">
+              <mat-label>Nombre o razón social</mat-label>
+              <input matInput formControlName="name" />
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Correo (recibirá la factura)</mat-label>
+              <input matInput type="email" formControlName="email" />
+              <mat-error>Correo inválido</mat-error>
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Teléfono</mat-label>
+              <input matInput formControlName="phone" />
+            </mat-form-field>
+            <mat-form-field class="vk-full">
+              <mat-label>Dirección</mat-label>
+              <input matInput formControlName="address" />
+            </mat-form-field>
+          </div>
+        } @else {
+          <p class="vk-muted">
+            CONSUMIDOR FINAL · 9999999999999 — máximo {{ config()?.finalConsumer?.maxAmount | currency }} por factura.
+          </p>
+          @if (overFinalConsumerLimit()) {
+            <p class="limit">El total supera el máximo para consumidor final. Seleccione "Con datos" e identifique al cliente.</p>
+          }
+        }
+      </section>
+
+      <section class="vk-card">
+        <div class="section-head">
+          <h2>Productos o servicios</h2>
+          <button matButton type="button" (click)="addLine()"><span class="material-symbols-outlined">add</span> Agregar línea</button>
+        </div>
+        <vk-product-picker [priceListId]="form.controls.customerKind.value === 'identified' ? customerPriceListId() : undefined" (picked)="addProduct($event)" />
+        <div class="lines" formArrayName="lines">
+          @for (l of form.controls.lines.controls; track l; let i = $index) {
+            <div class="line" [formGroupName]="i">
+              <mat-form-field class="code">
+                <mat-label>Código</mat-label>
+                <input matInput formControlName="mainCode" />
+              </mat-form-field>
+              <mat-form-field class="desc">
+                <mat-label>Descripción</mat-label>
+                <input matInput formControlName="description" />
+              </mat-form-field>
+              <mat-form-field class="num">
+                <mat-label>Cantidad</mat-label>
+                <input matInput formControlName="quantity" inputmode="decimal" />
+              </mat-form-field>
+              <mat-form-field class="num">
+                <mat-label>Precio</mat-label>
+                <input matInput formControlName="unitPrice" inputmode="decimal" />
+                <span matTextPrefix>$&nbsp;</span>
+              </mat-form-field>
+              <mat-form-field class="num">
+                <mat-label>Descuento</mat-label>
+                <input matInput formControlName="discount" inputmode="decimal" />
+              </mat-form-field>
+              <mat-form-field class="tax">
+                <mat-label>IVA</mat-label>
+                <mat-select formControlName="taxRateId">
+                  @for (t of config()?.taxRates ?? []; track t.id) {
+                    <mat-option [value]="t.id">{{ t.label }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+              <div class="line-total">{{ lineTotal(l) | currency }}</div>
+              <button matIconButton type="button" (click)="removeLine(i)" [disabled]="form.controls.lines.length === 1" aria-label="Quitar línea">
+                <span class="material-symbols-outlined">delete</span>
+              </button>
+            </div>
+          }
+        </div>
+        @if (preview().error) {
+          <p class="limit">{{ preview().error }}</p>
+        }
+      </section>
+    </div>
+
+    <aside class="side">
+      <section class="vk-card">
+        <mat-form-field class="w">
+          <mat-label>Punto de emisión</mat-label>
+          <mat-select formControlName="emissionPointId">
+            @for (p of config()?.emissionPoints ?? []; track p.id) {
+              <mat-option [value]="p.id">{{ p.label }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+
+        @if (preview().totals; as t) {
+          <dl class="totals">
+            @for (g of t.taxGroups; track g.percentageCode) {
+              <dt>Subtotal {{ groupLabel(g.percentageCode) }}</dt>
+              <dd>{{ g.base | currency }}</dd>
+            }
+            <dt>Descuento</dt>
+            <dd>{{ t.totalDiscount | currency }}</dd>
+            @for (g of t.taxGroups; track g.percentageCode) {
+              @if (g.amount !== '0.00') {
+                <dt>IVA {{ groupLabel(g.percentageCode) }}</dt>
+                <dd>{{ g.amount | currency }}</dd>
+              }
+            }
+            <dt class="grand">TOTAL</dt>
+            <dd class="grand">{{ t.total | currency }}</dd>
+          </dl>
+        } @else {
+          <p class="vk-muted">Agregue productos para ver el total.</p>
+        }
+      </section>
+
+      <section class="vk-card">
+        <div class="section-head">
+          <h2>Forma de pago</h2>
+          <button matIconButton type="button" (click)="addPayment()" aria-label="Agregar forma de pago" matTooltip="Pago mixto">
+            <span class="material-symbols-outlined">add</span>
+          </button>
+        </div>
+        <div formArrayName="payments">
+          @for (p of form.controls.payments.controls; track p; let i = $index) {
+            <div class="pay" [formGroupName]="i">
+              <mat-form-field class="pay-method">
+                <mat-label>Medio</mat-label>
+                <mat-select formControlName="method" (selectionChange)="onMethod(p, $event.value)">
+                  @for (m of methods; track m.value) {
+                    <mat-option [value]="m.value">{{ m.label }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field class="pay-amount">
+                <mat-label>Valor</mat-label>
+                <input matInput formControlName="amount" inputmode="decimal" (focus)="!p.controls.amount.value && fillRemaining(p)" />
+                <button matIconButton matSuffix type="button" (click)="fillRemaining(p)" aria-label="Completar el saldo" matTooltip="Completar saldo">
+                  <span class="material-symbols-outlined">done_all</span>
+                </button>
+              </mat-form-field>
+              @if (form.controls.payments.length > 1) {
+                <button matIconButton type="button" (click)="removePayment(i)" aria-label="Quitar forma de pago">
+                  <span class="material-symbols-outlined">close</span>
+                </button>
+              }
+            </div>
+          }
+        </div>
+        @if (preview().totals; as t) {
+          <p class="vk-muted paid" [class.mismatch]="paid().toFixed(2) !== t.total">Pagado: {{ paid() | currency }} de {{ t.total | currency }}</p>
+        }
+      </section>
+
+      @if (errorDetails().length) {
+        <section class="vk-card details">
+          <strong>Detalle técnico</strong>
+          <ul>
+            @for (d of errorDetails(); track $index) {
+              <li class="vk-mono">{{ d }}</li>
+            }
+          </ul>
+        </section>
+      }
+
+      <button matButton="filled" class="emit" type="submit" [disabled]="saving() || overFinalConsumerLimit() || config()?.certificate?.present === false">
+        <span class="material-symbols-outlined">receipt_long</span>
+        {{ saving() ? 'Emitiendo…' : 'Emitir factura' }}
+      </button>
+    </aside>
+  </form>
+</div>

@@ -39,4 +39,6 @@ export interface ApiError {
   message: string;
   /** Errores por campo (validación). */
   fields?: Record<string, string>;
+  /** Detalle técnico (p. ej. errores del XSD) */
+  details?: string[];
 }

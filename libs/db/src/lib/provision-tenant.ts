@@ -5,6 +5,7 @@ import {
   SYSTEM_ROLES,
 } from '@vektra/shared-domain';
 import { PrismaClient, TaxRegime } from '../generated/prisma/client';
+import { ensureCatalogDefaults } from './catalog-defaults';
 import { withContext } from './client';
 import { uuidv7 } from './uuid';
 
@@ -81,6 +82,8 @@ export async function provisionTenant(prisma: PrismaClient, input: ProvisionTena
     await tx.warehouse.create({
       data: { id: warehouseId, tenantId, establishmentId, name: 'Bodega principal', isDefault: true },
     });
+
+    await ensureCatalogDefaults(tx, tenantId);
 
     let adminRoleId = '';
     for (const def of SYSTEM_ROLES) {

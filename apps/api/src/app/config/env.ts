@@ -6,6 +6,8 @@ const envSchema = z.object({
   REDIS_URL: z.string().default('redis://127.0.0.1:6379'),
   API_PORT: z.coerce.number().default(3300),
   WEB_ORIGIN: z.string().default('http://localhost:4300'),
+  /** URL pública del sistema (links de RIDE por WhatsApp). Por defecto, el primer WEB_ORIGIN. */
+  PUBLIC_URL: z.string().default(''),
   JWT_ACCESS_SECRET: z.string().min(32, 'JWT_ACCESS_SECRET debe tener al menos 32 caracteres'),
   JWT_ACCESS_TTL_SECONDS: z.coerce.number().default(900),
   REFRESH_TTL_DAYS: z.coerce.number().default(7),

@@ -18,5 +18,6 @@
 - Secuenciales solo con `nextSequential()` dentro de la transacción del comprobante.
 - Validación de entrada con esquemas zod de `@vektra/shared-contracts` + `ZodPipe`; permisos con `@RequirePermissions()`.
 - Cambios auditables: `AuditService.record(tx, …)` dentro de la misma transacción.
+- Migraciones: NUNCA `GRANT ... ON ALL TABLES` (reabre UPDATE/DELETE en `audit_log`); los permisos de tablas nuevas llegan por default privileges.
 - NestJS 12 es ESM: pruebas de apps Nest con Vitest + SWC (`tools/vitest-nest.mts`), no Jest.
 - UI: Angular Material (PrimeNG 22 requiere licencia de pago; no usarlo).

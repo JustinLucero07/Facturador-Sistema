@@ -1,0 +1,166 @@
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 16px;
+  align-items: start;
+}
+
+.main,
+.side {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.side {
+  position: sticky;
+  top: 76px;
+}
+
+h2 {
+  font: var(--mat-sys-title-medium);
+  margin: 0;
+}
+
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+  border-radius: var(--vk-radius);
+  background: var(--vk-warn-bg);
+  color: var(--vk-warn);
+  margin-bottom: 16px;
+
+  &.danger {
+    background: var(--vk-danger-bg);
+    color: var(--vk-danger);
+  }
+  a {
+    color: inherit;
+    font-weight: 600;
+  }
+}
+
+.limit {
+  color: var(--vk-danger);
+  margin: 4px 0 0;
+}
+
+.lines {
+  display: flex;
+  flex-direction: column;
+}
+
+.line {
+  display: grid;
+  grid-template-columns: 76px minmax(140px, 1fr) 72px 92px 78px 88px 72px 40px;
+  gap: 8px;
+  align-items: start;
+  border-bottom: 1px dashed var(--mat-sys-outline-variant);
+  padding-top: 8px;
+}
+
+.line-total {
+  padding-top: 18px;
+  text-align: right;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.w {
+  width: 100%;
+}
+
+.totals {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 6px 12px;
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+
+  dt {
+    color: var(--vk-muted);
+  }
+  dd {
+    margin: 0;
+    text-align: right;
+  }
+  .grand {
+    font: var(--mat-sys-title-large);
+    color: var(--mat-sys-on-surface);
+    border-top: 1px solid var(--mat-sys-outline-variant);
+    padding-top: 8px;
+  }
+}
+
+.pay {
+  display: flex;
+  gap: 8px;
+  align-items: start;
+}
+
+.pay-method {
+  flex: 1;
+}
+
+.pay-amount {
+  width: 130px;
+}
+
+.paid {
+  margin: 4px 0 0;
+  &.mismatch {
+    color: var(--vk-warn);
+  }
+}
+
+.details ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: 12px;
+}
+
+.emit {
+  height: 52px;
+  font-size: 16px;
+}
+
+@media (max-width: 1399px) {
+  .line {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    padding-bottom: 6px;
+  }
+  .code {
+    grid-column: span 2;
+  }
+  .desc {
+    grid-column: span 4;
+  }
+  .num,
+  .tax {
+    grid-column: span 2;
+  }
+  .line-total {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 959px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+  .side {
+    position: static;
+  }
+}

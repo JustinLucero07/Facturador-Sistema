@@ -171,3 +171,25 @@ export function assertPaymentsMatch(payments: { amount: Num }[], total: Num): vo
     throw new CalculationError(`Las formas de pago suman ${money(sum)} y el total es ${money(total)}`);
   }
 }
+
+/**
+ * Reparte un descuento global (en centavos) entre las líneas en proporción a su valor bruto,
+ * porque el XML del SRI lleva el descuento por línea. El residuo del redondeo se asigna, centavo
+ * a centavo, a las líneas de mayor valor. Nunca asigna a una línea más que su propio valor.
+ */
+export function distributeDiscount(grossCents: number[], discountCents: number): number[] {
+  const total = grossCents.reduce((a, b) => a + b, 0);
+  if (total <= 0 || discountCents <= 0) return grossCents.map(() => 0);
+  if (discountCents > total) throw new CalculationError('El descuento supera el total');
+  const parts = grossCents.map((g) => Math.floor((g * discountCents) / total));
+  let rest = discountCents - parts.reduce((a, b) => a + b, 0);
+  const order = grossCents.map((g, i) => [g, i]).sort((a, b) => b[0] - a[0]);
+  for (let k = 0; rest > 0; k = (k + 1) % order.length) {
+    const i = order[k][1];
+    if (parts[i] < grossCents[i]) {
+      parts[i]++;
+      rest--;
+    }
+  }
+  return parts;
+}
