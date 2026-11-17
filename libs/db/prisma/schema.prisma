@@ -403,6 +403,31 @@ model TaxRate {
   @@map("tax_rate")
 }
 
+/// Códigos de retención (Fase 6). Renta: Catálogo ATS Tabla 3.10; IVA: Ficha v2.34 Tabla 20.
+/// Valores editables (cambian por resolución del SRI): nunca fijos en el código.
+model WithholdingCode {
+  id             String    @id @db.Uuid
+  /// Tabla 19: 1 renta, 2 IVA, 6 ISD
+  tax            String    @db.Char(1)
+  /// codigoRetencion del XML (312, 343, 3440… / 9, 10, 1, 11, 2, 3, 7, 8)
+  code           String    @db.VarChar(10)
+  description    String    @db.VarChar(500)
+  /// null = porcentaje variable según la normativa: se ingresa al retener
+  percentage     Decimal?  @db.Decimal(5, 2)
+  /// Texto oficial del porcentaje cuando no es fijo ("12 o 14", "varios porcentajes")
+  percentageNote String?   @map("percentage_note") @db.VarChar(300)
+  /// RESIDENT | NON_RESIDENT
+  residence      String    @default("RESIDENT") @db.VarChar(20)
+  validFrom      DateTime? @map("valid_from") @db.Date
+  validTo        DateTime? @map("valid_to") @db.Date
+  active         Boolean   @default(true)
+  sortOrder      Int       @default(0) @map("sort_order")
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@unique([tax, code, validFrom])
+  @@map("withholding_code")
+}
+
 /// Catálogos del SRI: formas de pago (Tabla 24), tipos de identificación (Tabla 6), tipos de comprobante (Tabla 3).
 model SriCatalog {
   catalog     String  @db.VarChar(40)
@@ -507,6 +532,11 @@ model Document {
   cashSessionId   String?        @map("cash_session_id") @db.Uuid
   /// Emitido sin conexión por una caja de escritorio (Fase 4)
   deviceId        String?        @map("device_id") @db.Uuid
+  /// Comprobante de retención (07): compra que sustenta (Fase 6)
+  purchaseId      String?        @map("purchase_id") @db.Uuid
+  /// Nota de crédito (04): factura que modifica y motivo (Fase 5)
+  relatedDocumentId String?      @map("related_document_id") @db.Uuid
+  reason          String?        @db.VarChar(300)
   createdBy       String?        @map("created_by") @db.Uuid
   createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime       @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -516,10 +546,15 @@ model Document {
   emissionPoint   EmissionPoint       @relation(fields: [emissionPointId], references: [id])
   lines           DocumentLine[]
   payments        DocumentPayment[]
+  withholdings    WithholdingLine[]
   electronic      ElectronicDocument?
+  relatedDocument Document?           @relation("CreditNotes", fields: [relatedDocumentId], references: [id])
+  creditNotes     Document[]          @relation("CreditNotes")
 
   @@unique([emissionPointId, docType, sequential])
   @@index([cashSessionId])
+  @@index([relatedDocumentId])
+  @@index([purchaseId])
   @@index([tenantId, issueDate(sort: Desc)])
   @@index([tenantId, buyerId])
   @@map("document")
@@ -543,11 +578,16 @@ model DocumentLine {
   discount    Decimal  @db.Decimal(14, 2)
   subtotal    Decimal  @db.Decimal(14, 2)
   additional  Json     @default("[]")
+  /// Nota de crédito: línea de la factura que se devuelve (controla lo ya acreditado)
+  sourceLineId String? @map("source_line_id") @db.Uuid
+  /// Nota de crédito: la mercadería vuelve al stock (false = dañada / no reingresa)
+  restock      Boolean @default(true)
 
   document Document          @relation(fields: [documentId], references: [id], onDelete: Cascade)
   taxes    DocumentLineTax[]
 
   @@unique([documentId, lineNo])
+  @@index([sourceLineId])
   @@map("document_line")
 }
 
@@ -855,6 +895,7 @@ enum MovementType {
   PURCHASE
   SALE
   SALE_RETURN
+  PURCHASE_RETURN
   ADJUSTMENT_IN
   ADJUSTMENT_OUT
   TRANSFER_IN
@@ -961,6 +1002,8 @@ model CashMovement {
   reason    String      @db.VarChar(300)
   createdBy String      @map("created_by") @db.Uuid
   at        DateTime    @default(now()) @db.Timestamptz(3)
+  /// Reembolso de una nota de crédito (Fase 5)
+  documentId String?    @map("document_id") @db.Uuid
 
   session CashSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
@@ -993,4 +1036,187 @@ model Quote {
   @@unique([emissionPointId, number])
   @@index([tenantId, createdAt(sort: Desc)])
   @@map("quote")
+}
+
+// ───────────────────────── Compras (Fase 5) ─────────────────────────
+
+/// Factura (u otro comprobante) recibida de un proveedor: suma stock y actualiza el costo promedio.
+model Purchase {
+  id                     String    @id @db.Uuid
+  tenantId               String    @map("tenant_id") @db.Uuid
+  supplierId             String    @map("supplier_id") @db.Uuid
+  /// Tabla 3 del SRI: 01 factura, 02 nota de venta RISE, 03 liquidación de compra
+  docType                String    @default("01") @map("doc_type") @db.Char(2)
+  /// 001-001-000000123
+  number                 String    @db.VarChar(17)
+  /// Clave de acceso / número de autorización del comprobante del proveedor
+  authorization          String?   @db.VarChar(49)
+  issueDate              DateTime  @map("issue_date") @db.Date
+  warehouseId            String    @map("warehouse_id") @db.Uuid
+  subtotal               Decimal   @db.Decimal(14, 2)
+  totalDiscount          Decimal   @map("total_discount") @db.Decimal(14, 2)
+  totalTax               Decimal   @map("total_tax") @db.Decimal(14, 2)
+  total                  Decimal   @db.Decimal(14, 2)
+  taxSummary             Json      @map("tax_summary")
+  /// REGISTERED | VOID
+  status                 String    @default("REGISTERED") @db.VarChar(20)
+  notes                  String?
+  /// Se cargó desde el XML autorizado del proveedor
+  fromXml                Boolean   @default(false) @map("from_xml")
+  createdBy              String?   @map("created_by") @db.Uuid
+  createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  voidedAt               DateTime? @map("voided_at") @db.Timestamptz(3)
+  voidedBy               String?   @map("voided_by") @db.Uuid
+  voidReason             String?   @map("void_reason") @db.VarChar(300)
+
+  lines PurchaseLine[]
+
+  @@unique([tenantId, supplierId, docType, number])
+  @@index([tenantId, issueDate(sort: Desc)])
+  @@map("purchase")
+}
+
+model PurchaseLine {
+  id            String   @id @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  purchaseId    String   @map("purchase_id") @db.Uuid
+  lineNo        Int      @map("line_no")
+  productId     String?  @map("product_id") @db.Uuid
+  productUnitId String?  @map("product_unit_id") @db.Uuid
+  unitFactor    Decimal  @default(1) @map("unit_factor") @db.Decimal(18, 6)
+  /// Código del proveedor (del XML)
+  supplierCode  String?  @map("supplier_code") @db.VarChar(25)
+  description   String   @db.VarChar(300)
+  quantity      Decimal  @db.Decimal(18, 6)
+  /// Costo unitario SIN IVA
+  unitCost      Decimal  @map("unit_cost") @db.Decimal(18, 6)
+  discount      Decimal  @db.Decimal(14, 2)
+  subtotal      Decimal  @db.Decimal(14, 2)
+  taxCode       String   @default("2") @map("tax_code") @db.VarChar(2)
+  percentageCode String  @map("percentage_code") @db.VarChar(4)
+  taxRate       Decimal  @map("tax_rate") @db.Decimal(5, 2)
+  taxAmount     Decimal  @map("tax_amount") @db.Decimal(14, 2)
+
+  purchase Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+
+  @@unique([purchaseId, lineNo])
+  @@index([productId])
+  @@map("purchase_line")
+}
+
+/// Código con el que un proveedor factura un producto propio (se recuerda al cargar su XML).
+model SupplierProductCode {
+  tenantId      String  @map("tenant_id") @db.Uuid
+  supplierId    String  @map("supplier_id") @db.Uuid
+  supplierCode  String  @map("supplier_code") @db.VarChar(25)
+  productId     String  @map("product_id") @db.Uuid
+  productUnitId String? @map("product_unit_id") @db.Uuid
+
+  @@id([supplierId, supplierCode])
+  @@index([tenantId])
+  @@map("supplier_product_code")
+}
+
+/// Retención aplicada en un comprobante de retención (07).
+model WithholdingLine {
+  id         String   @id @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  documentId String   @map("document_id") @db.Uuid
+  lineNo     Int      @map("line_no")
+  /// Tabla 19: 1 renta, 2 IVA, 6 ISD
+  tax        String   @db.Char(1)
+  code       String   @db.VarChar(10)
+  description String  @db.VarChar(500)
+  base       Decimal  @db.Decimal(14, 2)
+  percentage Decimal  @db.Decimal(5, 2)
+  amount     Decimal  @db.Decimal(14, 2)
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, lineNo])
+  @@map("withholding_line")
+}
+
+// ───────────────────────── Cuentas por cobrar y por pagar (Fase 7) ─────────────────────────
+
+/// Documento por cobrar (AR: factura a crédito, saldo inicial) o por pagar (AP: compra, saldo inicial).
+model AccountItem {
+  id         String    @id @db.Uuid
+  tenantId   String    @map("tenant_id") @db.Uuid
+  /// AR = por cobrar (clientes) · AP = por pagar (proveedores)
+  side       String    @db.VarChar(2)
+  partyId    String    @map("party_id") @db.Uuid
+  /// INVOICE | PURCHASE | OPENING
+  sourceType String    @map("source_type") @db.VarChar(20)
+  sourceId   String?   @map("source_id") @db.Uuid
+  /// Número visible (001-001-000000123)
+  number     String    @db.VarChar(40)
+  issueDate  DateTime  @map("issue_date") @db.Date
+  dueDate    DateTime  @map("due_date") @db.Date
+  amount     Decimal   @db.Decimal(14, 2)
+  /// Saldo pendiente (= monto − aplicaciones vigentes); se actualiza en la misma transacción
+  balance    Decimal   @db.Decimal(14, 2)
+  /// OPEN | PAID | VOID
+  status     String    @default("OPEN") @db.VarChar(10)
+  notes      String?   @db.VarChar(300)
+  createdBy  String?   @map("created_by") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  allocations AccountAllocation[]
+
+  @@unique([side, sourceType, sourceId])
+  @@index([tenantId, side, partyId, status])
+  @@index([tenantId, side, dueDate])
+  @@map("account_item")
+}
+
+/// Cobro, pago, retención, nota de crédito o anticipo. Lo que no se aplica a documentos es saldo a favor.
+model AccountMovement {
+  id             String    @id @db.Uuid
+  tenantId       String    @map("tenant_id") @db.Uuid
+  side           String    @db.VarChar(2)
+  partyId        String    @map("party_id") @db.Uuid
+  /// PAYMENT | WITHHOLDING | CREDIT_NOTE | ADVANCE
+  kind           String    @db.VarChar(20)
+  date           DateTime  @db.Date
+  /// Medio (efectivo, transferencia…) para pagos
+  method         String?   @db.VarChar(30)
+  amount         Decimal   @db.Decimal(14, 2)
+  /// Saldo a favor que queda sin aplicar
+  unapplied      Decimal   @db.Decimal(14, 2)
+  reference      String?   @db.VarChar(100)
+  /// Comprobante relacionado (nota de crédito, retención emitida) 
+  documentId     String?   @map("document_id") @db.Uuid
+  /// Egreso/ingreso de caja si fue en efectivo
+  cashMovementId String?   @map("cash_movement_id") @db.Uuid
+  /// Detalle (retención recibida: número, autorización, líneas)
+  data           Json?
+  notes          String?   @db.VarChar(300)
+  createdBy      String?   @map("created_by") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  voidedAt       DateTime? @map("voided_at") @db.Timestamptz(3)
+  voidedBy       String?   @map("voided_by") @db.Uuid
+  voidReason     String?   @map("void_reason") @db.VarChar(300)
+
+  allocations AccountAllocation[]
+
+  @@index([tenantId, side, partyId, date])
+  @@index([documentId])
+  @@map("account_movement")
+}
+
+model AccountAllocation {
+  id         String   @id @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  movementId String   @map("movement_id") @db.Uuid
+  itemId     String   @map("item_id") @db.Uuid
+  amount     Decimal  @db.Decimal(14, 2)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  movement AccountMovement @relation(fields: [movementId], references: [id], onDelete: Cascade)
+  item     AccountItem     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([itemId])
+  @@index([movementId])
+  @@map("account_allocation")
 }

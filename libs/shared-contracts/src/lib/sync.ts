@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { uuidSchema } from './common';
 import type { CertificateStatus, TaxRateItem } from './einvoice';
-import { issueInvoiceSchema } from './einvoice';
+import { creditNoteBuyerSchema, issueInvoiceSchema } from './einvoice';
 import type { LicenseStatus } from './company';
 import { closeCashSchema, quoteSchema, type PaymentMethodDef } from './pos';
 
@@ -239,6 +239,26 @@ export const syncOpSchema = z.discriminatedUnion('type', [
       sequential: z.number().int().min(1).max(999_999_999),
       accessKey: z.string().regex(/^\d{49}$/),
       request: issueInvoiceSchema,
+    }),
+  }),
+  z.object({
+    type: z.literal('credit_note.issue'),
+    payload: z.object({
+      documentId: uuidSchema,
+      issuedAt: at,
+      sequential: z.number().int().min(1).max(999_999_999),
+      accessKey: z.string().regex(/^\d{49}$/),
+      /** Egreso de caja del reembolso en efectivo (mismo id en la caja y en el servidor) */
+      cashMovementId: uuidSchema.nullable().optional(),
+      request: z.object({
+        invoiceId: uuidSchema,
+        emissionPointId: uuidSchema,
+        reason: z.string().trim().min(3).max(300),
+        buyer: creditNoteBuyerSchema.nullable().optional(),
+        /** La caja no conoce los ids de línea del servidor: se referencia por número de línea */
+        lines: z.array(z.object({ lineNo: z.number().int().min(1), quantity: z.string(), restock: z.boolean() })).min(1).max(400),
+        refund: z.object({ method: z.string().min(1).max(30), cashSessionId: uuidSchema.nullable().optional() }),
+      }),
     }),
   }),
   z.object({

@@ -125,7 +125,7 @@ export class SyncClient {
 
   private wipe(): void {
     this.ctx.db.tx(() => {
-      for (const t of ['users', 'products', 'product_units', 'product_barcodes', 'product_prices', 'parties', 'stock', 'sequences', 'cash_sessions', 'cash_movements', 'documents', 'quotes', 'outbox']) {
+      for (const t of ['users', 'products', 'product_units', 'product_barcodes', 'product_prices', 'parties', 'stock', 'sequences', 'cash_sessions', 'cash_movements', 'documents', 'credit_notes', 'quotes', 'outbox']) {
         this.ctx.db.run(`DELETE FROM ${t}`);
       }
       this.ctx.db.run('DELETE FROM meta');
@@ -179,6 +179,11 @@ export class SyncClient {
             const documentId = (JSON.parse(op.payload) as { documentId: string }).documentId;
             if (ok) this.ctx.db.run("UPDATE documents SET status = 'SIGNED' WHERE id = ? AND status = 'PENDING_SYNC'", documentId);
             else this.ctx.db.run("UPDATE documents SET status = 'REJECTED_SYNC', message = ? WHERE id = ?", r.message ?? 'Rechazada por el servidor', documentId);
+          }
+          if (op.type === 'credit_note.issue') {
+            const documentId = (JSON.parse(op.payload) as { documentId: string }).documentId;
+            if (ok) this.ctx.db.run("UPDATE credit_notes SET status = 'SIGNED' WHERE id = ? AND status = 'PENDING_SYNC'", documentId);
+            else this.ctx.db.run("UPDATE credit_notes SET status = 'REJECTED_SYNC', message = ? WHERE id = ?", r.message ?? 'Rechazada por el servidor', documentId);
           }
         }
       });
@@ -278,6 +283,14 @@ export class SyncClient {
       }
 
       for (const d of documents) {
+        db.run(
+          "UPDATE credit_notes SET status = ?, authorization_number = ?, authorized_at = ?, message = ? WHERE id = ? AND status <> 'PENDING_SYNC'",
+          d.status,
+          d.authorizationNumber,
+          d.authorizedAt,
+          d.message,
+          d.id,
+        );
         db.run(
           "UPDATE documents SET status = ?, authorization_number = ?, authorized_at = ?, message = ? WHERE id = ? AND status <> 'PENDING_SYNC'",
           d.status,

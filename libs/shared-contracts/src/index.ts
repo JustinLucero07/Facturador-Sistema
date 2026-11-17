@@ -8,3 +8,6 @@ export * from './lib/einvoice';
 export * from './lib/catalog';
 export * from './lib/pos';
 export * from './lib/sync';
+export * from './lib/purchases';
+export * from './lib/withholdings';
+export * from './lib/accounts';

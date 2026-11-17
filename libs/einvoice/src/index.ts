@@ -5,3 +5,5 @@ export * from './lib/issue';
 export * from './lib/process';
 export * from './lib/output';
 export * from './lib/queue';
+export * from './lib/credit-note';
+export * from './lib/withholding';

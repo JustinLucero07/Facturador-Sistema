@@ -87,11 +87,13 @@ export async function ticketHtml(t: TicketData, width: 58 | 80): Promise<string>
     ${c.withholdingAgentNumber ? `<div class="c sm">Agente de retención Res. ${esc(c.withholdingAgentNumber)}</div>` : ''}
     ${c.rimpeLegend ? `<div class="c sm b">${esc(c.rimpeLegend)}</div>` : ''}
     <hr>
-    <div class="c b">FACTURA ${esc(t.number)}</div>
+    <div class="c b">${esc(t.docLabel ?? 'FACTURA')} ${esc(t.number)}</div>
     ${t.environment === 1 ? '<div class="c b">*** AMBIENTE DE PRUEBAS ***</div>' : ''}
     <div class="sm">Fecha: ${d.toLocaleDateString('es-EC')} ${d.toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' })}</div>
     <div class="sm">Autorización / clave de acceso:</div>
     <div class="key">${esc(t.accessKey)}</div>
+    ${t.related ? `<div class="sm">Modifica: ${esc(t.related.label)} ${esc(t.related.number)} del ${esc(t.related.date.split('-').reverse().join('/'))}</div>` : ''}
+    ${t.reason ? `<div class="sm">Motivo: ${esc(t.reason)}</div>` : ''}
     <hr>
     <div class="sm">Cliente: ${esc(t.buyer.name)}</div>
     <div class="sm">${t.buyer.idType === '04' ? 'RUC' : t.buyer.idType === '05' ? 'C.I.' : 'ID'}: ${esc(t.buyer.id)}</div>
@@ -104,11 +106,12 @@ export async function ticketHtml(t: TicketData, width: 58 | 80): Promise<string>
       <tr><td class="b big">TOTAL</td><td class="r b big">$${money(t.total)}</td></tr>
     </table>
     <hr>
+    ${t.related ? `<div class="sm b">Reembolso:</div>` : ''}
     <table>${pays}</table>
     <hr>
-    ${qr ? `<div class="c"><img class="qr" src="${qr}" alt=""><div class="sm">Escanee para descargar su factura electrónica</div></div>` : ''}
+    ${qr ? `<div class="c"><img class="qr" src="${qr}" alt=""><div class="sm">Escanee para descargar su ${t.related ? 'nota de crédito' : 'factura'} electrónica</div></div>` : ''}
     <div class="c sm">${t.cashier ? `Atendido por: ${esc(t.cashier)}<br>` : ''}Verifique su comprobante en www.sri.gob.ec</div>
-    <div class="c sm">Gracias por su compra</div>`;
+    ${t.related ? '<div class="c sm">Firma del cliente: ____________________</div>' : '<div class="c sm">Gracias por su compra</div>'}`;
   return frameHtml(width, body);
 }
 

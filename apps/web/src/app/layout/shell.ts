@@ -36,6 +36,7 @@ const NAV: NavSection[] = [
       { label: 'Comprobantes', icon: 'receipt_long', link: '/facturacion/comprobantes', permission: 'einvoice.read' },
       { label: 'Firma y correo', icon: 'key', link: '/facturacion/configuracion', permission: 'einvoice.read' },
       { label: 'Impuestos', icon: 'percent', link: '/impuestos', permission: 'catalog.read' },
+      { label: 'Códigos de retención', icon: 'receipt', link: '/retenciones', permission: 'purchases.manage' },
     ],
   },
   {
@@ -44,8 +45,16 @@ const NAV: NavSection[] = [
       { label: 'Productos', icon: 'inventory_2', link: '/productos', permission: 'catalog.read' },
       { label: 'Clientes y proveedores', icon: 'contacts', link: '/clientes', permission: 'customers.read' },
       { label: 'Existencias y kárdex', icon: 'warehouse', link: '/inventario', permission: 'inventory.read' },
+      { label: 'Compras', icon: 'local_shipping', link: '/compras', permission: 'purchases.manage' },
       { label: 'Catálogos', icon: 'category', link: '/catalogos', permission: 'catalog.read' },
       { label: 'Importar Excel', icon: 'upload_file', link: '/importar', permission: 'catalog.read' },
+    ],
+  },
+  {
+    title: 'Cuentas',
+    items: [
+      { label: 'Por cobrar', icon: 'request_quote', link: '/cuentas/cobrar', permission: 'receivables.manage' },
+      { label: 'Por pagar', icon: 'account_balance_wallet', link: '/cuentas/pagar', permission: 'purchases.manage' },
     ],
   },
   {

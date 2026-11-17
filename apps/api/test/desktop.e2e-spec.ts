@@ -298,6 +298,42 @@ describe('Caja de escritorio (sin conexión y sincronización)', () => {
     expect(server.body.invoices).toBe(3);
   });
 
+  it('DEVOLUCIÓN SIN CONEXIÓN: nota de crédito en la caja, se sincroniza con la misma clave', async () => {
+    setServer('http://127.0.0.1:1');
+    const docs = engine.db.all<{ id: string; number: string }>('SELECT id, number FROM documents ORDER BY sequential');
+    const v2 = docs[1]; // 2 taladros + 3 brocas a "Cliente Sin Internet"
+    const found = await local('GET', `/api/einvoice/invoices/find?q=${v2.number}`);
+    expect(found.body.id).toBe(v2.id);
+    const c = (await local('GET', `/api/einvoice/documents/${v2.id}/creditable`)).body;
+    const taladro = c.lines.find((l: { description: string }) => l.description.startsWith('Taladro'));
+    const before = (await local('GET', '/api/products/search?q=TAL-1')).body[0].stock;
+    const nc = await local('POST', '/api/einvoice/credit-notes', {
+      invoiceId: v2.id,
+      emissionPointId: desktopEp,
+      reason: 'Devolución de mercadería',
+      lines: [{ sourceLineId: taladro.id, quantity: '1' }],
+      refund: { method: 'transferencia' },
+    });
+    expect(nc.status).toBe(200);
+    expect(nc.body).toMatchObject({ number: '001-002-000000001', total: '46.00' });
+    // El taladro vuelve al stock de la caja de inmediato
+    expect(Number((await local('GET', '/api/products/search?q=TAL-1')).body[0].stock)).toBe(Number(before) + 1);
+    expect((await local('GET', `/api/pos/tickets/${nc.body.documentId}`)).body).toMatchObject({ docLabel: 'NOTA DE CRÉDITO', related: { number: v2.number } });
+    // No se puede devolver dos veces lo mismo (aunque siga sin conexión)
+    const again = await local('POST', '/api/einvoice/credit-notes', { invoiceId: v2.id, emissionPointId: desktopEp, reason: 'Otra', lines: [{ sourceLineId: taladro.id, quantity: '2' }], refund: { method: 'transferencia' } });
+    expect(again.status).toBe(422);
+
+    setServer(serverUrl);
+    await engine.sync.run();
+    const server = await withContext(db, { tenantId: T.tenantId }, (tx) =>
+      tx.document.findUniqueOrThrow({ where: { id: nc.body.documentId }, include: { electronic: true } }),
+    );
+    expect(server).toMatchObject({ docType: '04', relatedDocumentId: v2.id, deviceId, sequential: 1n });
+    expect(server.electronic?.accessKey).toBe(nc.body.accessKey);
+    expect(server.total.toString()).toBe('46');
+    expect(engine.db.get<{ status: string }>('SELECT status FROM credit_notes WHERE id = ?', nc.body.documentId)?.status).toBe('SIGNED');
+  });
+
   it('el panel de la web muestra la caja; al revocarla deja de sincronizar', async () => {
     const list = await http().get('/api/devices').set(auth()).expect(200);
     expect(list.body[0]).toMatchObject({ id: deviceId, status: 'active', pendingOps: 0, failedOps: 0, appVersion: 'test' });

@@ -66,6 +66,12 @@ export class LocalCatalog {
         if (l.productId && wanted.has(l.productId)) out.set(l.productId, (out.get(l.productId) ?? new D(0)).minus(l.baseQty));
       }
     }
+    // Devoluciones aún no enviadas: la mercadería ya volvió al estante.
+    for (const n of this.ctx.db.all<{ lines: string }>("SELECT lines FROM credit_notes WHERE status = 'PENDING_SYNC'")) {
+      for (const l of json<{ productId: string | null; restockQty: string }[]>(n.lines, [])) {
+        if (l.productId && wanted.has(l.productId)) out.set(l.productId, (out.get(l.productId) ?? new D(0)).plus(l.restockQty));
+      }
+    }
     return new Map(productIds.map((id) => [id, qty(out.get(id) ?? 0)]));
   }
 

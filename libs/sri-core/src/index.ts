@@ -10,3 +10,5 @@ export * from './lib/soap/client';
 export * from './lib/soap/messages';
 export * from './lib/ride/ride';
 export * from './lib/xml/parse-invoice';
+export * from './lib/xml/credit-note';
+export * from './lib/xml/withholding';

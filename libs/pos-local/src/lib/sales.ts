@@ -30,7 +30,14 @@ export interface DocRow {
   message: string | null;
 }
 
-interface StoredLine {
+export interface StoredLine {
+  /** Id local de la línea (para devoluciones) y su número en la factura */
+  lineId?: string;
+  lineNo?: number;
+  mainCode?: string | null;
+  auxCode?: string | null;
+  taxCode?: string;
+  rate?: string;
   productId: string | null;
   baseQty: string;
   description: string;
@@ -41,7 +48,7 @@ interface StoredLine {
   percentageCode: string;
 }
 
-interface StoredPayment {
+export interface StoredPayment {
   method: string;
   sriCode: string;
   amount: string;
@@ -151,6 +158,12 @@ export class LocalSales {
     }
 
     const lines: StoredLine[] = computed.lines.map((l, k) => ({
+      lineId: uuidv7(),
+      lineNo: k + 1,
+      mainCode: l.mainCode,
+      auxCode: l.auxCode,
+      taxCode: l.taxes[0]?.taxCode ?? '2',
+      rate: l.taxes[0]?.rate ?? '0',
       productId: input.lines[k].productId ?? null,
       baseQty: new D(l.quantity).times(factors[k]).toString(),
       description: l.description,
@@ -249,8 +262,11 @@ export class LocalSales {
   }
 
   ticket(id: string): TicketData {
+    return this.ticketFromRow(this.doc(id));
+  }
+
+  ticketFromRow(d: DocRow): TicketData {
     const cfg = this.ctx.requireConfig();
-    const d = this.doc(id);
     const buyer = json<BuyerInput>(d.buyer, { idType: '07', id: '', name: '' });
     const totals = json<Totals>(d.totals, { subtotal: '0', totalDiscount: '0', taxGroups: [], totalTax: '0', tip: '0', total: d.total });
     const label = (code: string) => cfg.taxRates.find((r) => r.taxCode === '2' && r.percentageCode === code)?.label ?? code;

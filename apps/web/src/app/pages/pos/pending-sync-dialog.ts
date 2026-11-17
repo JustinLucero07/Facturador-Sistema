@@ -45,7 +45,7 @@ const LABELS: Record<string, string> = {
     </mat-dialog-actions>
   `,
   styles: `
-    .op { padding: 8px 0; border-bottom: 1px solid var(--mat-sys-outline-variant); min-width: min(520px, 80vw); }
+    .op { padding: 8px 0; border-bottom: 1px solid var(--mat-sys-outline-variant); }
     .bad strong, .msg { color: var(--vk-danger); }
     .msg { font: var(--mat-sys-body-small); }
     .small { font: var(--mat-sys-body-small); }

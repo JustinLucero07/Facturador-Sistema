@@ -98,7 +98,7 @@
             <div class="empty">
               <span class="material-symbols-outlined">barcode_scanner</span>
               <p>Escanee un producto o búsquelo por nombre</p>
-              <p class="vk-muted keys">F2 buscar · F4 cliente · F8 descuento · F12 cobrar · Esc vaciar · +/− cantidad · Supr quitar</p>
+              <p class="vk-muted keys">F2 buscar · F4 cliente · F8 descuento · F9 devolución · F12 cobrar · Esc vaciar · +/− cantidad · Supr quitar</p>
             </div>
           }
         </div>
@@ -141,6 +141,7 @@
             <button matButton="outlined" (click)="saveQuote()" [disabled]="!lines().length">Guardar proforma</button>
             <button matButton="outlined" (click)="loadQuote()">Abrir proforma</button>
           }
+          @if (canReturn) { <button matButton="outlined" (click)="returnSale()">Devolución (F9)</button> }
           <button matButton="outlined" (click)="clear()" [disabled]="!lines().length">Vaciar (Esc)</button>
         </div>
       </aside>

@@ -11,12 +11,16 @@ Cada cliente tiene **su propia VPS** con una instancia del sistema. El **Vektra 
 | `apps/api` | API de la instancia (NestJS 12) |
 | `apps/worker` | Tareas en segundo plano (BullMQ): validación de licencia; luego SRI y correo |
 | `apps/web` | Frontend de la instancia (Angular 22 + Material) |
+| `apps/desktop` | **Vektra Caja** (Electron): caja de escritorio que factura sin internet — ver [docs/fase-4-escritorio.md](docs/fase-4-escritorio.md) |
 | `apps/hub-api`, `apps/hub-web` | Vektra Hub: licencias, clientes, planes |
 | `libs/db` | Esquema Prisma de la instancia, migraciones (incluye **RLS**), seed, secuenciales |
 | `libs/hub-db` | Esquema Prisma del Hub |
 | `libs/sri-core` | SRI puro (servidor y escritorio): clave de acceso, cálculo, XML, XSD, firma XAdES-BES, SOAP, RIDE — ver [docs/fase-1-sri.md](docs/fase-1-sri.md) |
 | `libs/einvoice` | Emisión y ciclo de vida de comprobantes (BD + colas), correo con XML + RIDE |
 | `libs/inventory` | Kárdex con costo promedio ponderado, stock por bodega, ajustes y transferencias — ver [docs/fase-2-catalogo.md](docs/fase-2-catalogo.md) |
+| Notas de crédito y compras | ver [docs/fase-5-notas-credito-compras.md](docs/fase-5-notas-credito-compras.md) |
+| Retenciones | ver [docs/fase-6-retenciones.md](docs/fase-6-retenciones.md) (catálogo oficial en `docs/sri/Catalogo_ATS.xls`) |
+| `libs/pos-local` | Motor de la caja de escritorio: SQLite, API local y sincronización con el servidor |
 | `libs/licensing` | Licencias firmadas Ed25519 (emisión y verificación) |
 | `libs/shared-domain` | Reglas puras: validación de cédula/RUC, permisos, roles, plantillas de negocio |
 | `libs/shared-contracts` | Esquemas zod y tipos compartidos API ↔ frontend |
@@ -38,6 +42,7 @@ pnpm dev:api      # http://localhost:3300/api
 pnpm dev:worker
 pnpm dev:web      # http://localhost:4300
 pnpm dev:hub-web  # http://localhost:4400
+pnpm nx serve desktop   # caja de escritorio (requiere `pnpm nx build web`)
 ```
 
 Usuarios de desarrollo (creados por el seed):

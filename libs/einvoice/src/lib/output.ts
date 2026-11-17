@@ -1,5 +1,5 @@
 import { decryptSecret, PrismaClient, withContext } from '@vektra/db';
-import { parseInvoiceXml, renderInvoiceRide } from '@vektra/sri-core';
+import { parseCreditNoteXml, parseInvoiceXml, parseWithholdingXml, renderCreditNoteRide, renderInvoiceRide, renderWithholdingRide } from '@vektra/sri-core';
 import { createTransport, Transporter } from 'nodemailer';
 import { EInvoiceError } from './errors';
 
@@ -13,20 +13,28 @@ export async function renderRide(prisma: PrismaClient, tenantId: string, documen
   if (!data.edoc) throw new EInvoiceError('Comprobante no encontrado');
   const xml = data.edoc.authorizedXml ?? data.edoc.signedXml;
   if (!xml) throw new EInvoiceError('El comprobante aún no tiene XML');
-  const doc = parseInvoiceXml(xml);
   const [rates, payments] = await Promise.all([
     prisma.taxRate.findMany({ where: { taxCode: '2' } }),
     prisma.sriCatalog.findMany({ where: { catalog: 'payment_method' } }),
   ]);
   const branding = (data.tenant?.branding ?? {}) as { logoBase64?: string; color?: string };
-  const pdf = await renderInvoiceRide(doc, {
+  const opts = {
     authorizationDate: data.edoc.authorizedAt?.toISOString() ?? null,
     rateLabels: Object.fromEntries(rates.map((r) => [r.percentageCode, r.label])),
     paymentLabels: Object.fromEntries(payments.map((p) => [p.code, p.description])),
     logo: branding.logoBase64 ? Buffer.from(branding.logoBase64, 'base64') : null,
     brandColor: branding.color,
-  });
-  return { pdf, fileName: `RIDE-${doc.establishment}-${doc.emissionPoint}-${doc.sequential}.pdf` };
+  };
+  if (data.edoc.docType === '07') {
+    const w = parseWithholdingXml(xml);
+    return { pdf: await renderWithholdingRide(w, opts), fileName: `RIDE-RET-${w.establishment}-${w.emissionPoint}-${w.sequential}.pdf` };
+  }
+  if (data.edoc.docType === '04') {
+    const nc = parseCreditNoteXml(xml);
+    return { pdf: await renderCreditNoteRide(nc, opts), fileName: `RIDE-NC-${nc.establishment}-${nc.emissionPoint}-${nc.sequential}.pdf` };
+  }
+  const doc = parseInvoiceXml(xml);
+  return { pdf: await renderInvoiceRide(doc, opts), fileName: `RIDE-${doc.establishment}-${doc.emissionPoint}-${doc.sequential}.pdf` };
 }
 
 export interface MailConfigPlain {
@@ -80,7 +88,7 @@ export async function emailDocument(
     );
 
   if (!to) {
-    await setStatus('SKIPPED', 'El cliente no tiene correo electrónico');
+    await setStatus('SKIPPED', edoc.docType === '07' ? 'El proveedor no tiene correo electrónico' : 'El cliente no tiene correo electrónico');
     return 'SKIPPED';
   }
   if (!mail || !mail.enabled) {
@@ -89,7 +97,9 @@ export async function emailDocument(
   }
 
   const { pdf, fileName } = await renderRide(prisma, tenantId, documentId);
-  const number = fileName.replace(/^RIDE-|\.pdf$/g, '');
+  const number = fileName.replace(/^RIDE-(NC-|RET-)?|\.pdf$/g, '');
+  const kind = edoc.docType === '04' ? 'nota de crédito electrónica' : edoc.docType === '07' ? 'comprobante de retención electrónico' : 'factura electrónica';
+  const Kind = kind.charAt(0).toUpperCase() + kind.slice(1);
   const company = tenant.tradeName ?? tenant.legalName;
   const transport = opts.transportFactory ? opts.transportFactory(mail) : buildTransport(mail, opts.masterKey);
   try {
@@ -97,9 +107,9 @@ export async function emailDocument(
       from: { name: mail.fromName, address: mail.fromEmail },
       replyTo: mail.replyTo ?? undefined,
       to,
-      subject: `Factura electrónica ${number} — ${company}`,
-      text: `Estimado(a) ${edoc.document.buyerName}:\n\nAdjuntamos su factura electrónica ${number} por $${edoc.document.total.toFixed(2)}.\nClave de acceso: ${edoc.accessKey}\n\nPuede verificar su validez en www.sri.gob.ec.\n\n${company}`,
-      html: `<p>Estimado(a) ${escapeHtml(edoc.document.buyerName)}:</p><p>Adjuntamos su <strong>factura electrónica ${number}</strong> por <strong>$${edoc.document.total.toFixed(2)}</strong>.</p><p>Clave de acceso:<br><code>${edoc.accessKey}</code></p><p>Puede verificar su validez en <a href="https://www.sri.gob.ec">www.sri.gob.ec</a>.</p><p>${escapeHtml(company)}</p>`,
+      subject: `${Kind} ${number} — ${company}`,
+      text: `Estimado(a) ${edoc.document.buyerName}:\n\nAdjuntamos su ${kind} ${number} por $${edoc.document.total.toFixed(2)}.\nClave de acceso: ${edoc.accessKey}\n\nPuede verificar su validez en www.sri.gob.ec.\n\n${company}`,
+      html: `<p>Estimado(a) ${escapeHtml(edoc.document.buyerName)}:</p><p>Adjuntamos su <strong>${kind} ${number}</strong> por <strong>$${edoc.document.total.toFixed(2)}</strong>.</p><p>Clave de acceso:<br><code>${edoc.accessKey}</code></p><p>Puede verificar su validez en <a href="https://www.sri.gob.ec">www.sri.gob.ec</a>.</p><p>${escapeHtml(company)}</p>`,
       attachments: [
         { filename: `${edoc.accessKey}.xml`, content: edoc.authorizedXml, contentType: 'application/xml' },
         { filename: fileName, content: pdf, contentType: 'application/pdf' },

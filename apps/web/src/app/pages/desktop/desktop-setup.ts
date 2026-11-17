@@ -41,7 +41,7 @@ import { RuntimeService } from '../../core/runtime';
     </div>
   `,
   styles: `
-    .page { min-height: 100vh; display: grid; place-items: center; padding: 16px; background: var(--mat-sys-surface-container-low); }
+    .page { min-height: 100vh; box-sizing: border-box; display: grid; place-items: center; padding: 16px; background: var(--mat-sys-surface-container-low); }
     .card { width: min(460px, 100%); background: var(--mat-sys-surface); border-radius: 24px; padding: 32px; border: 1px solid var(--mat-sys-outline-variant); position: relative; overflow: hidden; }
     .bar { position: absolute; top: 0; left: 0; right: 0; }
     .brand { display: flex; align-items: center; gap: 8px; font-size: 17px; margin-bottom: 24px; }

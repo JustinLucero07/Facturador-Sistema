@@ -145,7 +145,7 @@ export class NewDeviceDialog {
     <mat-dialog-actions align="end"><button matButton mat-dialog-close>Cerrar</button></mat-dialog-actions>
   `,
   styles: `
-    .op { padding: 10px 0; border-bottom: 1px solid var(--mat-sys-outline-variant); min-width: min(560px, 80vw); }
+    .op { padding: 10px 0; border-bottom: 1px solid var(--mat-sys-outline-variant); }
     .bad strong { color: var(--vk-danger); }
     .msg { font: var(--mat-sys-body-small); color: var(--vk-danger); margin-top: 2px; }
   `,

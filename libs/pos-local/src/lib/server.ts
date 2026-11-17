@@ -7,6 +7,7 @@ import { LocalAuth, LocalUser, requirePerm } from './auth';
 import { LocalCash } from './cash';
 import { LocalCatalog } from './catalog';
 import { EngineContext } from './context';
+import { LocalCreditNotes } from './credit-notes';
 import { LocalSales } from './sales';
 import { SyncClient } from './sync';
 import { HttpError, json } from './util';
@@ -60,6 +61,7 @@ export class LocalServer {
     private readonly sales: LocalSales,
     private readonly sync: SyncClient,
     private readonly webRoot: string | null,
+    private readonly notes: LocalCreditNotes = new LocalCreditNotes(ctx),
   ) {
     this.register();
   }
@@ -156,13 +158,21 @@ export class LocalServer {
     // Facturación
     this.on('GET', '/api/einvoice/config', (r) => (r.user(), this.config()));
     this.on('POST', '/api/einvoice/invoices', (r) => s.issue(r.user(), r.body));
-    this.on('GET', '/api/einvoice/documents/:id', (r) => (r.user(), s.detail(r.params['id'])));
+    this.on('GET', '/api/einvoice/documents/:id', (r) => (r.user(), this.notes.has(r.params['id']) ? this.notes.detail(r.params['id']) : s.detail(r.params['id'])));
+    // Devoluciones (nota de crédito)
+    this.on('GET', '/api/einvoice/invoices/find', (r) => (requirePerm(r.user(), 'sales.void'), this.notes.find(r.query.get('q') ?? '')));
+    this.on('GET', '/api/einvoice/documents/:id/creditable', (r) => (requirePerm(r.user(), 'sales.void'), this.notes.creditable(r.params['id'])));
+    this.on('POST', '/api/einvoice/credit-notes', (r) => this.notes.issue(r.user(), r.body));
     this.on('POST', '/api/einvoice/documents/:id/email', (r) => {
       const email = (r.body as { email?: string } | null)?.email;
       s.email(r.user(), r.params['id'], email);
       return null;
     });
-    this.on('GET', '/api/pos/tickets/:id', (r) => (r.user(), s.ticket(r.params['id'])));
+    this.on('GET', '/api/pos/tickets/:id', (r) => {
+      r.user();
+      const id = r.params['id'];
+      return this.notes.has(id) ? this.notes.ticket(id, (doc) => s.ticketFromRow(doc)) : s.ticket(id);
+    });
 
     // Catálogo y clientes
     this.on('GET', '/api/products/search', (r) => {
@@ -245,7 +255,8 @@ export class LocalServer {
     if (!file.startsWith(root) || !existsSync(file) || statSync(file).isDirectory()) file = join(root, 'index.html'); // rutas de la SPA
     res.statusCode = 200;
     res.setHeader('content-type', MIME[extname(file)] ?? 'application/octet-stream');
-    res.setHeader('cache-control', file.endsWith('index.html') ? 'no-cache' : 'public, max-age=31536000, immutable');
+    // Solo los archivos con hash en el nombre (build de producción) se guardan en caché para siempre.
+    res.setHeader('cache-control', /-[A-Z0-9]{8,}\.(js|css|woff2?)$/.test(file) ? 'public, max-age=31536000, immutable' : 'no-cache');
     createReadStream(file).pipe(res);
   }
 

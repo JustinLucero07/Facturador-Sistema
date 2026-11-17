@@ -2,7 +2,7 @@ import { Body, Controller, ForbiddenException, Get, HttpCode, Injectable, NotFou
 import { uuidv7 } from '@vektra/db';
 import { invalidateSriSettings } from '@vektra/einvoice';
 import { ZodPipe } from '@vektra/nest-common';
-import { TaxRateItem, TaxRateRequest, taxRateSchema } from '@vektra/shared-contracts';
+import { TaxRateItem, TaxRateRequest, taxRateSchema, WithholdingCodeItem, withholdingCodeSchema } from '@vektra/shared-contracts';
 import { z } from 'zod';
 import { AuditService } from '../audit/audit.service';
 import { RequirePermissions } from '../common/decorators';
@@ -68,6 +68,39 @@ export class TaxService {
     await this.log('setting.update', key, before.value, value);
   }
 
+  // ───────── Códigos de retención (Catálogo ATS / Tabla 20) ─────────
+
+  async withholdingCodes(): Promise<WithholdingCodeItem[]> {
+    const rows = await this.prisma.client.withholdingCode.findMany({ orderBy: [{ tax: 'asc' }, { sortOrder: 'asc' }, { code: 'asc' }] });
+    return rows.map((r) => ({
+      id: r.id,
+      tax: r.tax,
+      code: r.code,
+      description: r.description,
+      percentage: r.percentage === null ? null : r.percentage.toString(),
+      percentageNote: r.percentageNote,
+      residence: r.residence,
+      validFrom: r.validFrom?.toISOString().slice(0, 10) ?? null,
+      validTo: r.validTo?.toISOString().slice(0, 10) ?? null,
+      active: r.active,
+    }));
+  }
+
+  async saveWithholdingCode(id: string | null, input: z.output<typeof withholdingCodeSchema>) {
+    const data = { ...input, percentage: input.percentage ?? null, percentageNote: input.percentageNote ?? null, validFrom: toDate(input.validFrom), validTo: toDate(input.validTo) };
+    if (id) {
+      const before = await this.prisma.client.withholdingCode.findUnique({ where: { id } });
+      if (!before) throw new NotFoundException('Código no encontrado');
+      await this.prisma.client.withholdingCode.update({ where: { id }, data });
+      await this.log('withholding_code.update', id, before, data);
+      return { id };
+    }
+    const newId = uuidv7();
+    await this.prisma.client.withholdingCode.create({ data: { id: newId, ...data, sortOrder: 999 } });
+    await this.log('withholding_code.create', newId, null, data);
+    return { id: newId };
+  }
+
   private log(action: string, entityId: string, before: unknown, after: unknown) {
     const ctx = currentContext();
     return this.audit.recordStandalone(ctx.tenantId ?? null, ctx.userId ?? null, { action, entity: 'tax_config', entityId, before, after });
@@ -96,6 +129,25 @@ export class TaxController {
   @RequirePermissions('tax.manage')
   update(@Param('id', ParseUUIDPipe) id: string, @Body(new ZodPipe(taxRateSchema)) body: z.output<typeof taxRateSchema>) {
     return this.svc.update(id, body);
+  }
+
+  @Get('withholding-codes')
+  @RequirePermissions('purchases.manage')
+  withholdingCodes() {
+    return this.svc.withholdingCodes();
+  }
+
+  @Post('withholding-codes')
+  @RequirePermissions('tax.manage')
+  createWithholdingCode(@Body(new ZodPipe(withholdingCodeSchema)) b: z.output<typeof withholdingCodeSchema>) {
+    return this.svc.saveWithholdingCode(null, b);
+  }
+
+  @Patch('withholding-codes/:id')
+  @HttpCode(204)
+  @RequirePermissions('tax.manage')
+  async updateWithholdingCode(@Param('id', ParseUUIDPipe) id: string, @Body(new ZodPipe(withholdingCodeSchema)) b: z.output<typeof withholdingCodeSchema>) {
+    await this.svc.saveWithholdingCode(id, b);
   }
 
   @Get('settings')

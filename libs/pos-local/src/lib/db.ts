@@ -68,6 +68,17 @@ const MIGRATIONS: string[] = [
   );
   CREATE INDEX outbox_status ON outbox (status, seq);
   `,
+  // v2 (Fase 5): notas de crédito emitidas en la caja
+  `
+  CREATE TABLE credit_notes (
+    id TEXT PRIMARY KEY, sequential INTEGER NOT NULL UNIQUE, number TEXT NOT NULL, access_key TEXT NOT NULL UNIQUE,
+    issued_at TEXT NOT NULL, invoice_id TEXT NOT NULL, created_by TEXT, reason TEXT NOT NULL, refund_method TEXT NOT NULL,
+    cash_movement_id TEXT, buyer TEXT NOT NULL, lines TEXT NOT NULL, totals TEXT NOT NULL, total TEXT NOT NULL,
+    status TEXT NOT NULL, authorization_number TEXT, authorized_at TEXT, message TEXT
+  );
+  CREATE INDEX credit_notes_invoice ON credit_notes (invoice_id);
+  ALTER TABLE cash_movements ADD COLUMN document_id TEXT;
+  `,
 ];
 
 export type Row = Record<string, SQLInputValue>;

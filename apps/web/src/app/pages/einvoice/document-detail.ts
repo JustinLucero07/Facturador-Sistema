@@ -2,7 +2,10 @@ import { CurrencyPipe, DatePipe } from '@angular/common';
 import { Component, computed, inject, input, OnDestroy, OnInit, signal } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDialog } from '@angular/material/dialog';
 import { RouterLink } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
+import { refundMethods, ReturnDialog, ReturnResult } from '../pos/return-dialog';
 import { EDOC_STATUS_LABELS, type EDocDetail, type EDocStatusCode } from '@vektra/shared-contracts';
 import { AuthService } from '../../core/auth.service';
 import { Notify } from '../../core/notify.service';
@@ -20,6 +23,7 @@ export class DocumentDetailPage implements OnInit, OnDestroy {
   private readonly api = inject(EInvoiceApi);
   private readonly notify = inject(Notify);
   protected readonly auth = inject(AuthService);
+  private readonly dialog = inject(MatDialog);
   /** :id de la ruta */
   readonly id = input.required<string>();
   protected readonly doc = signal<EDocDetail | null>(null);
@@ -62,6 +66,27 @@ export class DocumentDetailPage implements OnInit, OnDestroy {
     try {
       const blob = await this.api.file(d.id, kind);
       openBlob(blob, kind === 'xml' ? `${d.accessKey}.xml` : `RIDE-${d.number}.pdf`, kind === 'ride');
+    } catch (e) {
+      this.notify.error(e);
+    }
+  }
+
+  /** Nota de crédito desde la web (sin caja: el reembolso solo se registra en el comprobante). */
+  protected async creditNote(): Promise<void> {
+    const d = this.doc();
+    if (!d) return;
+    try {
+      const cfg = await this.api.config();
+      const ep = cfg.emissionPoints[0];
+      if (!ep) return this.notify.error('No hay un punto de emisión web activo');
+      const res = (await firstValueFrom(
+        this.dialog
+          .open(ReturnDialog, { data: { invoiceId: d.id, emissionPointId: ep.id, cashSessionId: null, methods: refundMethods(cfg.posPaymentMethods) }, maxWidth: '96vw' })
+          .afterClosed(),
+      )) as ReturnResult | undefined;
+      if (!res) return;
+      this.notify.ok(`Nota de crédito ${res.number} emitida`);
+      await this.load();
     } catch (e) {
       this.notify.error(e);
     }

@@ -7,6 +7,10 @@ import {
   EInvoiceError,
   enqueueSriJob,
   issueInvoice,
+  issueCreditNote,
+  issueWithholding,
+  withholdingDraft,
+  creditableInvoice,
   loadSriSettings,
   renderRide,
   retryTarget,
@@ -20,6 +24,10 @@ import {
   EDocStatusCode,
   EInvoiceConfig,
   IssueInvoiceParsed,
+  CreditNoteParsed,
+  WithholdingParsed,
+  WithholdingDraft,
+  CreditableInvoice,
   MailConfigRequest,
   MailConfigView,
   Paginated,
@@ -173,7 +181,17 @@ export class EInvoiceService {
       const edoc = await tx.electronicDocument.findUnique({
         where: { documentId },
         include: {
-          document: { include: { establishment: true, emissionPoint: true, lines: { include: { taxes: true }, orderBy: { lineNo: 'asc' } }, payments: true } },
+          document: {
+            include: {
+              establishment: true,
+              emissionPoint: true,
+              lines: { include: { taxes: true }, orderBy: { lineNo: 'asc' } },
+              payments: true,
+              relatedDocument: { include: { establishment: true, emissionPoint: true } },
+              creditNotes: { include: { establishment: true, emissionPoint: true, electronic: true }, orderBy: { createdAt: 'asc' } },
+              withholdings: { orderBy: { lineNo: 'asc' } },
+            },
+          },
           events: { orderBy: { at: 'asc' } },
         },
       });
@@ -186,7 +204,8 @@ export class EInvoiceService {
     ]);
     const rateLabel = (code: string) => rates.find((r) => r.percentageCode === code)?.label ?? code;
     const d = data.document;
-    const summary = (d.taxSummary as { percentageCode: string; base: string; amount: string }[]) ?? [];
+    // En la retención (07) taxSummary guarda datos del sustento, no grupos de IVA.
+    const summary = Array.isArray(d.taxSummary) ? (d.taxSummary as { percentageCode: string; base: string; amount: string }[]) : [];
     return {
       ...this.toListItem(data),
       buyerEmail: d.buyerEmail,
@@ -207,7 +226,88 @@ export class EInvoiceService {
       taxSummary: summary.map((g) => ({ label: rateLabel(g.percentageCode), base: g.base, amount: g.amount })),
       payments: d.payments.map((p) => ({ label: payments.find((x) => x.code === p.sriCode)?.description ?? p.sriCode, amount: p.amount.toFixed(2) })),
       events: data.events.map((e) => ({ at: e.at.toISOString(), from: e.fromStatus, to: e.toStatus, note: e.note, messages: views(e.messages) })),
+      related: d.relatedDocument
+        ? { id: d.relatedDocument.id, number: `${d.relatedDocument.establishment.code}-${d.relatedDocument.emissionPoint.code}-${d.relatedDocument.sequential.toString().padStart(9, '0')}` }
+        : null,
+      reason: d.reason,
+      withholdings: d.withholdings.map((w) => ({
+        tax: w.tax,
+        code: w.code,
+        description: w.description,
+        base: w.base.toFixed(2),
+        percentage: w.percentage.toString(),
+        amount: w.amount.toFixed(2),
+      })),
+      purchase: d.purchaseId ? await this.purchaseRef(d.purchaseId) : null,
+      creditNotes: d.creditNotes.map((n) => ({
+        id: n.id,
+        number: `${n.establishment.code}-${n.emissionPoint.code}-${n.sequential.toString().padStart(9, '0')}`,
+        total: n.total.toFixed(2),
+        status: (n.electronic?.status ?? 'DRAFT') as EDocStatusCode,
+      })),
     };
+  }
+
+  private async purchaseRef(id: string): Promise<{ id: string; number: string } | null> {
+    const p = await this.prisma.tx((tx) => tx.purchase.findFirst({ where: { id }, select: { id: true, number: true } }));
+    return p ?? null;
+  }
+
+  // ───────── Comprobantes de retención ─────────
+
+  withholdingDraft(purchaseId: string): Promise<WithholdingDraft> {
+    return withholdingDraft(this.prisma.client, this.ctx().tenantId, purchaseId).catch(asUnprocessable);
+  }
+
+  async issueWithholding(input: WithholdingParsed) {
+    const ctx = this.ctx();
+    const result = await issueWithholding(this.prisma.client, { ...ctx, masterKey: getEnv().MASTER_KEY }, input).catch(asUnprocessable);
+    await this.audit.recordStandalone(ctx.tenantId, ctx.userId, {
+      action: 'create',
+      entity: 'withholding',
+      entityId: result.documentId,
+      after: { number: result.number, total: result.total, purchaseId: input.purchaseId, items: input.items.length },
+    });
+    await enqueueSriJob(this.queue, 'send', { tenantId: ctx.tenantId, documentId: result.documentId });
+    return result;
+  }
+
+  // ───────── Notas de crédito ─────────
+
+  /** Busca una factura por número (001-001-000000123, también sin ceros) o por clave de acceso. */
+  async findInvoice(q: string): Promise<{ id: string }> {
+    const term = q.trim();
+    const where = /^\d{49}$/.test(term)
+      ? { electronic: { accessKey: term } }
+      : (() => {
+          const m = /^(\d{1,3})-(\d{1,3})-(\d{1,9})$/.exec(term);
+          if (!m) throw new UnprocessableEntityException('Escriba el número de factura (ej. 001-001-000000123) o escanee la clave de acceso del ticket');
+          return {
+            establishment: { code: m[1].padStart(3, '0') },
+            emissionPoint: { code: m[2].padStart(3, '0') },
+            sequential: BigInt(m[3]),
+          };
+        })();
+    const doc = await this.prisma.tx((tx) => tx.document.findFirst({ where: { ...where, docType: '01' }, select: { id: true } }));
+    if (!doc) throw new NotFoundException('No se encontró esa factura');
+    return doc;
+  }
+
+  creditable(invoiceId: string): Promise<CreditableInvoice> {
+    return creditableInvoice(this.prisma.client, this.ctx().tenantId, invoiceId).catch(asUnprocessable);
+  }
+
+  async issueCreditNote(input: CreditNoteParsed) {
+    const ctx = this.ctx();
+    const result = await issueCreditNote(this.prisma.client, { ...ctx, masterKey: getEnv().MASTER_KEY }, input).catch(asUnprocessable);
+    await this.audit.recordStandalone(ctx.tenantId, ctx.userId, {
+      action: 'create',
+      entity: 'credit_note',
+      entityId: result.documentId,
+      after: { number: result.number, total: result.total, invoiceId: input.invoiceId, reason: input.reason, refund: input.refund.method },
+    });
+    await enqueueSriJob(this.queue, 'send', { tenantId: ctx.tenantId, documentId: result.documentId });
+    return result;
   }
 
   async xml(documentId: string): Promise<{ xml: string; fileName: string }> {

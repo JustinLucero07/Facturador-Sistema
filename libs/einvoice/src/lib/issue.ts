@@ -14,6 +14,7 @@ import {
   validateAgainstXsd,
 } from '@vektra/sri-core';
 import { allowsNegativeStock, applyMovement, defaultWarehouseId, InventoryError, toBaseUnits } from '@vektra/inventory';
+import { addDays, createItem, partyBalance } from '@vektra/accounts';
 import { loadSigningIdentity } from './certificates';
 import { EInvoiceError } from './errors';
 import { loadSriSettings } from './settings';
@@ -31,7 +32,7 @@ export interface IssueContext {
    * clave de acceso de la caja, y no se rechaza por stock insuficiente ni por productos desactivados
    * después de la venta. Se firma aquí (el .p12 nunca sale del servidor).
    */
-  offline?: { documentId: string; deviceId: string; sequential: number; issuedAt: Date; accessKey: string };
+  offline?: { documentId: string; deviceId: string; sequential: number; issuedAt: Date; accessKey: string; cashMovementId?: string };
 }
 
 export interface IssueResult {
@@ -50,7 +51,7 @@ export function ecuadorDate(now = new Date()): { day: number; month: number; yea
   return { day, month, year };
 }
 
-function validateBuyer(b: IssueInvoiceParsed['buyer'], finalConsumerId: string): void {
+export function validateBuyer(b: IssueInvoiceParsed['buyer'], finalConsumerId: string): void {
   if (b.idType === '07') {
     if (b.id !== finalConsumerId) throw new EInvoiceError(`Para consumidor final la identificación es ${finalConsumerId}`);
     return;
@@ -101,7 +102,7 @@ export async function issueInvoice(prisma: PrismaClient, ctx: IssueContext, inpu
     // Venta de caja (POS): la sesión debe estar abierta y ser de este punto de emisión.
     if (input.cashSessionId) {
       const session = await tx.cashSession.findFirst({ where: { id: input.cashSessionId } });
-      if (!session) throw new EInvoiceError('La caja de esta venta no existe');
+      if (!session) throw new EInvoiceError(offline ? 'La caja de esta venta no existe en el servidor' : 'La caja está cerrada. Abra la caja para seguir vendiendo.');
       // Sin conexión la caja pudo cerrarse antes de sincronizar: basta con que la sesión exista.
       if (session.status !== 'OPEN' && !offline) throw new EInvoiceError('La caja está cerrada. Abra la caja para seguir vendiendo.');
       if (session.emissionPointId !== point.id) throw new EInvoiceError('La caja abierta no corresponde a este punto de emisión');
@@ -170,6 +171,55 @@ export async function issueInvoice(prisma: PrismaClient, ctx: IssueContext, inpu
       throw new EInvoiceError(
         `Las facturas a consumidor final no pueden superar $${settings.finalConsumer.maxAmount}. Identifique al cliente con cédula o RUC.`,
       );
+    }
+
+    // Venta a crédito (Fase 7): cliente registrado, límite de crédito y plazo en el XML (<plazo>, <unidadTiempo>).
+    const creditMethods = new Set(settings.paymentMethods.filter((m) => m.credit).map((m) => m.method));
+    const creditPays = payments.filter((p) => creditMethods.has(p.method));
+    let credit: { partyId: string; amount: string; dueDate: Date } | null = null;
+    if (creditPays.length) {
+      const amount = creditPays.reduce((a, p) => a.plus(p.amount), dec(0));
+      let party = await tx.party.findFirst({ where: { identification: input.buyer.id } });
+      if (!party) {
+        if (!offline) throw new EInvoiceError('Para vender a crédito registre primero al cliente y su límite de crédito (Clientes y proveedores)');
+        // Venta ya hecha en la caja sin conexión: se registra el cliente para no perder la deuda.
+        party = await tx.party.create({
+          data: {
+            id: uuidv7(),
+            tenantId: ctx.tenantId,
+            idType: input.buyer.idType,
+            identification: input.buyer.id,
+            name: input.buyer.name,
+            email: input.buyer.email ?? null,
+            phone: input.buyer.phone ?? null,
+            address: input.buyer.address ?? null,
+            isCustomer: true,
+          },
+        });
+      }
+      if (!offline) {
+        const limit = dec(party.creditLimit.toString());
+        if (limit.lte(0)) throw new EInvoiceError(`${party.name} no tiene crédito aprobado. Asígnele un límite de crédito en Clientes y proveedores.`);
+        const available = limit.minus((await partyBalance(tx, 'AR', party.id)).owed);
+        if (amount.gt(available)) {
+          throw new EInvoiceError(`Crédito insuficiente para ${party.name}: disponible $${available.toFixed(2)} de $${limit.toFixed(2)}`);
+        }
+      }
+      const withTerm = creditPays.find((p) => p.term != null);
+      let dueDate: Date;
+      if (withTerm && withTerm.timeUnit === 'meses') {
+        dueDate = new Date(issueDateOnly);
+        dueDate.setUTCMonth(dueDate.getUTCMonth() + Number(withTerm.term));
+      } else {
+        dueDate = addDays(issueDateOnly, withTerm ? Number(withTerm.term) : party.creditDays);
+      }
+      for (const p of creditPays) {
+        if (p.term == null) {
+          p.term = party.creditDays;
+          p.timeUnit = 'dias';
+        }
+      }
+      credit = { partyId: party.id, amount: amount.toFixed(2), dueDate };
     }
 
     const identity = await loadSigningIdentity(tx, ctx.masterKey, now);
@@ -347,6 +397,20 @@ export async function issueInvoice(prisma: PrismaClient, ctx: IssueContext, inpu
         cashReceived: p.cashReceived ?? null,
       })),
     });
+    if (credit) {
+      await createItem(tx, {
+        tenantId: ctx.tenantId,
+        side: 'AR',
+        partyId: credit.partyId,
+        sourceType: 'INVOICE',
+        sourceId: documentId,
+        number: `${point.establishment.code}-${point.code}-${formatSequential(sequential)}`,
+        issueDate: issueDateOnly,
+        dueDate: credit.dueDate,
+        amount: credit.amount,
+        userId: ctx.userId,
+      });
+    }
     if (quoteId) await tx.quote.update({ where: { id: quoteId }, data: { documentId } });
     await tx.electronicDocument.create({
       data: {

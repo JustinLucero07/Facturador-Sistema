@@ -1,5 +1,6 @@
 import { PrismaClient } from '../generated/prisma/client';
 import { uuidv7 } from './uuid';
+import { RENTA_CONCEPTS, RENTA_VALID_FROM } from './withholding-catalog.generated';
 
 /**
  * Datos iniciales de configuración tributaria, transcritos de la
@@ -101,6 +102,76 @@ export const SEED_SETTINGS: { key: string; value: unknown; note: string }[] = [
   { key: 'provider_ruc', value: null, note: 'Ficha v2.34 Anexo 26 (Res. NAC-DGERCGC26-00000027): RUC del proveedor del sistema en <infoAdicional> "RUC Proveedor"' },
 ];
 
+/** Ficha v2.34, Tabla 20: códigos de retención del IVA. */
+export const SEED_IVA_WITHHOLDING = [
+  { code: '9', description: 'Retención IVA 10%', percentage: '10' },
+  { code: '10', description: 'Retención IVA 20%', percentage: '20' },
+  { code: '1', description: 'Retención IVA 30%', percentage: '30' },
+  { code: '11', description: 'Retención IVA 50%', percentage: '50' },
+  { code: '2', description: 'Retención IVA 70%', percentage: '70' },
+  { code: '3', description: 'Retención IVA 100%', percentage: '100' },
+  { code: '7', description: 'Retención en cero (Disposición Transitoria Única, Res. NAC-DGERCGC15-00000284)', percentage: '0' },
+  { code: '8', description: 'No procede retención', percentage: '0' },
+];
+
+/** Catálogo ATS, Tabla 5: sustento tributario del comprobante (vigentes). */
+export const SEED_ATS_SUSTENTO = [
+  ['01', 'Crédito Tributario para declaración de IVA (servicios y bienes distintos de inventarios y activos fijos)'],
+  ['02', 'Costo o Gasto para declaración de IR (servicios y bienes distintos de inventarios y activos fijos)'],
+  ['03', 'Activo Fijo - Crédito Tributario para declaración de IVA'],
+  ['04', 'Activo Fijo - Costo o Gasto para declaración de IR'],
+  ['05', 'Liquidación Gastos de Viaje, hospedaje y alimentación Gastos IR (a nombre de empleados y no de la empresa)'],
+  ['06', 'Inventario - Crédito Tributario para declaración de IVA'],
+  ['07', 'Inventario - Costo o Gasto para declaración de IR'],
+  ['08', 'Valor pagado para solicitar Reembolso de Gasto (intermediario)'],
+  ['09', 'Reembolso por Siniestros'],
+  ['10', 'Distribución de Dividendos, Beneficios o Utilidades'],
+  ['11', 'Convenios de débito o recaudación para IFI´s'],
+  ['12', 'Impuestos y retenciones presuntivos'],
+  ['13', 'Valores reconocidos por entidades del sector público a favor de sujetos pasivos'],
+  ['14', 'Valores facturados por socios a operadoras de transporte (que no constituyen gasto de dicha operadora)'],
+  ['15', 'Pagos efectuados por consumos propios y de terceros de servicios digitales'],
+] as const;
+
+/** Catálogo ATS, Tabla 4: tipos de comprobante de compra que se registran en el sistema. */
+export const SEED_ATS_DOC_TYPES = [
+  ['01', 'Factura'],
+  ['02', 'Nota o boleta de venta'],
+  ['03', 'Liquidación de compra de Bienes o Prestación de servicios'],
+] as const;
+
+export async function seedWithholdingCodes(prisma: PrismaClient): Promise<void> {
+  let order = 0;
+  for (const r of SEED_IVA_WITHHOLDING) {
+    const exists = await prisma.withholdingCode.findFirst({ where: { tax: '2', code: r.code } });
+    if (!exists) await prisma.withholdingCode.create({ data: { id: uuidv7(), tax: '2', code: r.code, description: r.description, percentage: r.percentage, sortOrder: order } });
+    order++;
+  }
+  const from = new Date(`${RENTA_VALID_FROM}T00:00:00Z`);
+  order = 0;
+  for (const r of RENTA_CONCEPTS) {
+    const exists = await prisma.withholdingCode.findFirst({ where: { tax: '1', code: r.code, validFrom: from } });
+    if (!exists) {
+      await prisma.withholdingCode.create({
+        data: {
+          id: uuidv7(),
+          tax: '1',
+          code: r.code,
+          description: r.description,
+          percentage: r.percentage,
+          percentageNote: r.percentageNote,
+          residence: r.residence,
+          validFrom: from,
+          // Los pagos al exterior no se emiten todavía desde el sistema
+          active: r.residence === 'RESIDENT',
+          sortOrder: order,
+        },
+      });
+    }
+    order++;
+  }
+}
+
 export async function seedSriConfig(prisma: PrismaClient): Promise<void> {
   for (const r of SEED_IVA_RATES) {
     const exists = await prisma.taxRate.findFirst({ where: { taxCode: '2', percentageCode: r.percentageCode } });
@@ -110,6 +181,8 @@ export async function seedSriConfig(prisma: PrismaClient): Promise<void> {
     ['payment_method', SEED_PAYMENT_METHODS],
     ['id_type', SEED_ID_TYPES],
     ['doc_type', SEED_DOC_TYPES],
+    ['ats_sustento', SEED_ATS_SUSTENTO],
+    ['ats_doc_type', SEED_ATS_DOC_TYPES],
   ];
   for (const [catalog, rows] of catalogs) {
     let order = 0;
@@ -121,6 +194,7 @@ export async function seedSriConfig(prisma: PrismaClient): Promise<void> {
       });
     }
   }
+  await seedWithholdingCodes(prisma);
   for (const s of SEED_SETTINGS) {
     const exists = await prisma.sriSetting.findUnique({ where: { key: s.key } });
     if (!exists) await prisma.sriSetting.create({ data: { key: s.key, value: s.value as object, note: s.note } });

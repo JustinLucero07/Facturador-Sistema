@@ -64,7 +64,7 @@ export class SaleDoneDialog implements OnInit, OnDestroy {
       const t = await this.api.ticket(this.data.documentId);
       this.t.set(t);
       this.status.set(t.status as EDocStatusCode);
-      if (this.data.autoPrint) void printTicket(t, this.data.paperWidth);
+      if (this.data.autoPrint) void this.print();
     } catch (e) {
       this.notify.error(e);
     }
@@ -92,7 +92,12 @@ export class SaleDoneDialog implements OnInit, OnDestroy {
 
   protected async print(): Promise<void> {
     const t = this.t();
-    if (t) await printTicket(t, this.data.paperWidth);
+    if (!t) return;
+    try {
+      await printTicket(t, this.data.paperWidth);
+    } catch (e) {
+      this.notify.error(`No se pudo imprimir el ticket: ${(e as Error).message.replace(/^.*Error: /, '')}. Revise la impresora (menú de impresión).`);
+    }
   }
 
   protected async email(): Promise<void> {

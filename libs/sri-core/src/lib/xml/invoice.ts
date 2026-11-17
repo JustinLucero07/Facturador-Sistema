@@ -70,7 +70,10 @@ export function formatIssueDate(d: InvoiceDocument['issueDate']): string {
   return `${dd(d.day)}/${dd(d.month)}/${d.year}`;
 }
 
-export function invoiceInfoTributaria(doc: InvoiceDocument, docType = '01'): XmlElement {
+export function invoiceInfoTributaria(
+  doc: Pick<InvoiceDocument, 'issuer' | 'environment' | 'accessKey' | 'establishment' | 'emissionPoint' | 'sequential'>,
+  docType = '01',
+): XmlElement {
   const i = doc.issuer;
   return el(
     'infoTributaria',

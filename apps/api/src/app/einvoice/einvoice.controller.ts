@@ -19,6 +19,10 @@ import { ZodPipe } from '@vektra/nest-common';
 import {
   IssueInvoiceParsed,
   issueInvoiceSchema,
+  creditNoteSchema,
+  CreditNoteParsed,
+  withholdingSchema,
+  WithholdingParsed,
   MailConfigRequest,
   mailConfigSchema,
   pageQuerySchema,
@@ -49,6 +53,39 @@ export class EInvoiceController {
   @RequirePermissions('sales.create')
   issue(@Body(new ZodPipe(issueInvoiceSchema)) body: IssueInvoiceParsed) {
     return this.svc.issue(body);
+  }
+
+  @Get('invoices/find')
+  @RequirePermissions('sales.void')
+  findInvoice(@Query('q') q = '') {
+    return this.svc.findInvoice(q);
+  }
+
+  @Get('documents/:id/creditable')
+  @RequirePermissions('sales.void')
+  creditable(@Param('id', ParseUUIDPipe) id: string) {
+    return this.svc.creditable(id);
+  }
+
+  /** Datos para la retención de una compra (bases y última retención al proveedor) */
+  @Get('purchases/:id/withholding-draft')
+  @RequirePermissions('purchases.manage')
+  withholdingDraft(@Param('id', ParseUUIDPipe) id: string) {
+    return this.svc.withholdingDraft(id);
+  }
+
+  /** Comprobante de retención (07) a un proveedor */
+  @Post('withholdings')
+  @RequirePermissions('purchases.manage')
+  withholding(@Body(new ZodPipe(withholdingSchema)) body: WithholdingParsed) {
+    return this.svc.issueWithholding(body);
+  }
+
+  /** Nota de crédito (devolución total o parcial de una factura) */
+  @Post('credit-notes')
+  @RequirePermissions('sales.void')
+  creditNote(@Body(new ZodPipe(creditNoteSchema)) body: CreditNoteParsed) {
+    return this.svc.issueCreditNote(body);
   }
 
   @Get('documents')

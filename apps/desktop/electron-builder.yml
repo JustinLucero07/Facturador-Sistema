@@ -11,6 +11,7 @@ directories:
 npmRebuild: false
 nodeGypRebuild: false
 asar: true
+icon: build/icon.png
 extraResources:
   - from: ../../dist/apps/web/browser
     to: web
@@ -27,6 +28,7 @@ nsis:
   shortcutName: Vektra Caja
 linux:
   target: [AppImage, deb]
+  syncDesktopName: true
   category: Office
   artifactName: Vektra-Caja-${version}-${arch}.${ext}
   maintainer: Vektra Systems

@@ -1,0 +1,23 @@
+# Instalador de Vektra Caja para Windows (.exe). En Linux, electron-builder necesita wine para NSIS;
+# aquí se compila en un runner de Windows. Ejecutar a mano (Actions → Vektra Caja → Run workflow).
+name: Vektra Caja (escritorio)
+on:
+  workflow_dispatch:
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm nx package desktop -- --win nsis
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vektra-caja-windows
+          path: dist/apps/desktop/release/*.exe

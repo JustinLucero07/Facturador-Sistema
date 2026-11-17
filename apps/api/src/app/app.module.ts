@@ -19,6 +19,10 @@ import { AuditController } from './audit/audit.controller';
 import { DevicesController } from './devices/devices.controller';
 import { DevicesService } from './devices/devices.service';
 import { SyncController } from './sync/sync.controller';
+import { AccountsController } from './accounts/accounts.controller';
+import { AccountsService } from './accounts/accounts.service';
+import { PurchasesController } from './purchases/purchases.controller';
+import { PurchasesService } from './purchases/purchases.service';
 import { RuntimeController } from './sync/runtime.controller';
 import { SyncService } from './sync/sync.service';
 import { AuditService } from './audit/audit.service';
@@ -50,6 +54,8 @@ import { UsersService } from './users/users.service';
     AuthController,
     DevicesController,
     SyncController,
+    AccountsController,
+    PurchasesController,
     RuntimeController,
     UsersController,
     RolesController,
@@ -70,6 +76,8 @@ import { UsersService } from './users/users.service';
     PrismaService,
     DevicesService,
     SyncService,
+    AccountsService,
+    PurchasesService,
     AuditService,
     LicenseService,
     SessionService,

@@ -54,8 +54,10 @@ const FILTERS: { value: EDocStatusCode | ''; label: string }[] = [
       <div class="vk-table-wrap">
         <table mat-table [dataSource]="rows()">
           <ng-container matColumnDef="number">
-            <th mat-header-cell *matHeaderCellDef>Factura</th>
+            <th mat-header-cell *matHeaderCellDef>Comprobante</th>
             <td mat-cell *matCellDef="let r">
+              @if (r.docType === '04') { <span class="vk-badge brand nc">Nota de crédito</span> }
+              @if (r.docType === '07') { <span class="vk-badge nc">Retención</span> }
               <span class="vk-mono num">{{ r.number }}</span>
               <div class="vk-muted small">{{ r.issueDate | date: 'mediumDate' : 'UTC' }}</div>
             </td>

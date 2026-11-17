@@ -22,7 +22,7 @@
     "package": {
       "executor": "nx:run-commands",
       "dependsOn": ["build"],
-      "options": { "command": "node_modules/.bin/electron-builder --config apps/desktop/electron-builder.yml --projectDir apps/desktop", "cwd": "{workspaceRoot}" }
+      "options": { "command": "pnpm exec electron-builder --config electron-builder.yml --projectDir apps/desktop", "cwd": "{workspaceRoot}" }
     }
   }
 }

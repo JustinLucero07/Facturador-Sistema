@@ -64,6 +64,67 @@ export const issueInvoiceSchema = z.object({
 export type IssueInvoiceRequest = z.input<typeof issueInvoiceSchema>;
 export type IssueInvoiceParsed = z.output<typeof issueInvoiceSchema>;
 
+// ───────── Nota de crédito (Fase 5) ─────────
+
+/** Ficha v2.34, Tabla 6: la nota de crédito no admite consumidor final (07). */
+export const creditNoteBuyerSchema = buyerSchema.extend({
+  idType: z.enum(['04', '05', '06', '08'], { message: 'La nota de crédito debe identificar al cliente (RUC, cédula o pasaporte)' }),
+});
+
+export const creditNoteSchema = z.object({
+  invoiceId: uuidSchema,
+  emissionPointId: uuidSchema,
+  reason: z.string().trim().min(3, 'Indique el motivo de la nota de crédito').max(300),
+  /** Obligatorio si la factura fue a consumidor final; si no, se usa el cliente de la factura */
+  buyer: creditNoteBuyerSchema.nullable().optional(),
+  lines: z
+    .array(
+      z.object({
+        sourceLineId: uuidSchema,
+        quantity: decimalInput('Cantidad'),
+        /** false = no vuelve al stock (producto dañado) */
+        restock: z.boolean().default(true),
+      }),
+    )
+    .min(1, 'Elija al menos un producto a devolver')
+    .max(400),
+  /** Cómo se devuelve el dinero. Efectivo con caja abierta = egreso de esa caja. */
+  refund: z.object({
+    method: z.string().trim().min(1).max(30),
+    cashSessionId: uuidSchema.nullable().optional(),
+  }),
+});
+export type CreditNoteRequest = z.input<typeof creditNoteSchema>;
+export type CreditNoteParsed = z.output<typeof creditNoteSchema>;
+
+/** Factura con lo que aún se puede devolver por línea. */
+export interface CreditableInvoice {
+  id: string;
+  number: string;
+  issueDate: string;
+  status: EDocStatusCode;
+  buyer: { idType: string; id: string; name: string; email: string | null; phone: string | null; address: string | null };
+  total: string;
+  /** Ya acreditado en notas de crédito vigentes */
+  credited: string;
+  lines: {
+    id: string;
+    mainCode: string | null;
+    description: string;
+    quantity: string;
+    unitPrice: string;
+    discount: string;
+    subtotal: string;
+    taxLabel: string;
+    taxRate: string;
+    productId: string | null;
+    credited: string;
+    creditedDiscount: string;
+    remaining: string;
+  }[];
+  creditNotes: { id: string; number: string; total: string; status: EDocStatusCode; reason: string | null; issueDate: string }[];
+}
+
 export type EDocStatusCode =
   | 'DRAFT'
   | 'SIGNED'
@@ -128,6 +189,14 @@ export interface EDocDetail extends EDocListItem {
   taxSummary: { label: string; base: string; amount: string }[];
   payments: { label: string; amount: string }[];
   events: { at: string; from: EDocStatusCode | null; to: EDocStatusCode; note: string | null; messages: SriMessageView[] }[];
+  /** Nota de crédito: factura que modifica y motivo */
+  related: { id: string; number: string } | null;
+  reason: string | null;
+  /** Factura: notas de crédito emitidas sobre ella */
+  creditNotes: { id: string; number: string; total: string; status: EDocStatusCode }[];
+  /** Comprobante de retención: retenciones y compra que sustenta */
+  withholdings: { tax: string; code: string; description: string; base: string; percentage: string; amount: string }[];
+  purchase: { id: string; number: string } | null;
 }
 
 export interface TaxRateItem {

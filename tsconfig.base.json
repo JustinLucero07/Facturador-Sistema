@@ -30,7 +30,8 @@
       "@vektra/db/uuid": ["./libs/db/src/lib/uuid.ts"],
       "@vektra/pos-local": ["./libs/pos-local/src/index.ts"],
       "@vektra/sri-core/testing": ["./libs/sri-core/src/testing.ts"],
-      "@vektra/inventory": ["./libs/inventory/src/index.ts"]
+      "@vektra/inventory": ["./libs/inventory/src/index.ts"],
+      "@vektra/accounts": ["./libs/accounts/src/index.ts"]
     },
     "types": ["node"]
   },

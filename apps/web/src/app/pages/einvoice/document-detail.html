@@ -4,12 +4,29 @@
   @if (doc(); as d) {
     <div class="vk-page-header">
       <div>
-        <h1>Factura <span class="vk-mono">{{ d.number }}</span></h1>
+        <h1>{{ d.docType === '04' ? 'Nota de crédito' : d.docType === '07' ? 'Comprobante de retención' : 'Factura' }} <span class="vk-mono">{{ d.number }}</span></h1>
         <p>{{ d.buyerName }} · <span class="vk-mono">{{ d.buyerId }}</span> · {{ d.issueDate | date: 'longDate' : 'UTC' }}</p>
+        @if (d.purchase) {
+          <p>Retención de la compra <a routerLink="/compras" [queryParams]="{ ver: d.purchase.id }" class="vk-mono">{{ d.purchase.number }}</a></p>
+        }
+        @if (d.related) {
+          <p>Modifica la factura <a [routerLink]="['/facturacion/comprobantes', d.related.id]" class="vk-mono">{{ d.related.number }}</a>@if (d.reason) { · Motivo: {{ d.reason }} }</p>
+        }
+        @if (d.creditNotes.length) {
+          <p>
+            Notas de crédito:
+            @for (n of d.creditNotes; track n.id; let last = $last) {
+              <a [routerLink]="['/facturacion/comprobantes', n.id]" class="vk-mono">{{ n.number }}</a> ({{ n.total | currency }}){{ last ? '' : ', ' }}
+            }
+          </p>
+        }
       </div>
       <div class="vk-actions">
         <button matButton="outlined" (click)="download('ride')"><span class="material-symbols-outlined">picture_as_pdf</span> RIDE</button>
         <button matButton="outlined" (click)="download('xml')"><span class="material-symbols-outlined">code</span> XML</button>
+        @if (d.docType === '01' && auth.can('sales.void') && d.status !== 'NOT_AUTHORIZED' && d.status !== 'RETURNED') {
+          <button matButton="outlined" (click)="creditNote()"><span class="material-symbols-outlined">undo</span> Nota de crédito</button>
+        }
         @if (auth.can('einvoice.resend')) {
           @if (d.status === 'AUTHORIZED') {
             <button matButton="outlined" (click)="resendEmail()"><span class="material-symbols-outlined">forward_to_inbox</span> Enviar por correo</button>
@@ -76,6 +93,25 @@
     <div class="grid">
       <section class="vk-card">
         <h2>Detalle</h2>
+        @if (d.withholdings.length) {
+          <div class="vk-table-wrap flat">
+            <table class="simple">
+              <thead><tr><th>Impuesto</th><th>Código</th><th>Concepto</th><th class="r">Base</th><th class="r">%</th><th class="r">Retenido</th></tr></thead>
+              <tbody>
+                @for (w of d.withholdings; track $index) {
+                  <tr>
+                    <td>{{ w.tax === '1' ? 'Renta' : w.tax === '2' ? 'IVA' : 'ISD' }}</td>
+                    <td class="vk-mono">{{ w.code }}</td>
+                    <td>{{ w.description }}</td>
+                    <td class="r">{{ w.base | currency }}</td>
+                    <td class="r">{{ +w.percentage }}%</td>
+                    <td class="r">{{ w.amount | currency }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
         <div class="vk-table-wrap flat">
           <table class="simple">
             <thead><tr><th>Descripción</th><th class="r">Cant.</th><th class="r">P. unit.</th><th class="r">Desc.</th><th>IVA</th><th class="r">Total</th></tr></thead>
@@ -93,6 +129,7 @@
             </tbody>
           </table>
         </div>
+        }
       </section>
 
       <section class="vk-card">
@@ -106,11 +143,13 @@
               <dt>IVA {{ t.label }}</dt><dd>{{ t.amount | currency }}</dd>
             }
           }
-          <dt class="grand">Total</dt><dd class="grand">{{ d.total | currency }}</dd>
+          <dt class="grand">{{ d.docType === '07' ? 'Total retenido' : 'Total' }}</dt><dd class="grand">{{ d.total | currency }}</dd>
         </dl>
-        <h3>Pagos</h3>
-        @for (p of d.payments; track $index) {
-          <div class="pay"><span>{{ p.label }}</span><span>{{ p.amount | currency }}</span></div>
+        @if (d.payments.length) {
+          <h3>Pagos</h3>
+          @for (p of d.payments; track $index) {
+            <div class="pay"><span>{{ p.label }}</span><span>{{ p.amount | currency }}</span></div>
+          }
         }
         <h3>Correo</h3>
         <div class="vk-muted">
@@ -118,7 +157,7 @@
             @case ('SENT') { Enviado a {{ d.buyerEmail }} }
             @case ('PENDING') { Pendiente (se envía al autorizarse) }
             @case ('FAILED') { Falló: {{ d.emailError }} }
-            @default { {{ d.emailError ?? 'No se envía (sin correo del cliente)' }} }
+            @default { {{ d.emailError ?? (d.docType === '07' ? 'No se envía (el proveedor no tiene correo)' : 'No se envía (sin correo del cliente)') }} }
           }
         </div>
       </section>

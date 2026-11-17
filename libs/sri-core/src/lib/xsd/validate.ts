@@ -9,6 +9,8 @@ export interface XsdValidationResult {
 const SCHEMAS: Record<string, string> = {
   'factura:1.1.0': 'factura_V1.1.0.xsd',
   'factura:2.1.0': 'factura_V2.1.0.xsd',
+  'notaCredito:1.1.0': 'NotaCredito_V1.1.0.xsd',
+  'comprobanteRetencion:2.0.0': 'ComprobanteRetencion_V2.0.0.xsd',
 };
 
 export function supportedSchemas(): string[] {

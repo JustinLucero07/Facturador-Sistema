@@ -1,7 +1,7 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { ConflictException, HttpException, Injectable, Logger } from '@nestjs/common';
 import { claimSequential, Prisma, Tx, uuidv7 } from '@vektra/db';
-import { activeCertificate, certificateStatus, EInvoiceError, enqueueSriJob, issueInvoice, loadSriSettings, SRI_QUEUE } from '@vektra/einvoice';
+import { activeCertificate, certificateStatus, EInvoiceError, enqueueSriJob, issueCreditNote, issueInvoice, loadSriSettings, SRI_QUEUE } from '@vektra/einvoice';
 import { defaultWarehouseId } from '@vektra/inventory';
 import type { SyncOpResult, SyncPullResponse, SyncPushParsed, SyncPushResponse } from '@vektra/shared-contracts';
 import { validateCedula, validateRuc } from '@vektra/shared-domain';
@@ -29,6 +29,7 @@ const OP_PERMISSION: Record<PushOp['type'], string> = {
   'cash.movement': 'cash.operate',
   'cash.close': 'cash.operate',
   'invoice.issue': 'sales.create',
+  'credit_note.issue': 'sales.void',
   'quote.create': 'sales.quote',
   'document.email': 'sales.create',
 };
@@ -407,6 +408,48 @@ export class SyncService {
           entity: 'invoice',
           entityId: result.documentId,
           after: { number: result.number, total: result.total, accessKey: result.accessKey, buyer: req.buyer.id, origin: 'desktop' },
+        });
+        await enqueueSriJob(this.queue, 'send', { tenantId, documentId: result.documentId });
+        return { documentId: result.documentId, number: result.number, status: 'SIGNED' };
+      }
+
+      case 'credit_note.issue': {
+        const p = op.payload;
+        const req = p.request;
+        if (req.emissionPointId !== device.emission_point_id) throw new OpRejected('La nota de crédito no corresponde al punto de emisión de esta caja');
+        const found = await this.as(device, op.userId, async (tx) => ({
+          exists: await tx.document.findFirst({ where: { id: p.documentId }, select: { id: true } }),
+          lines: await tx.documentLine.findMany({ where: { documentId: req.invoiceId }, select: { id: true, lineNo: true } }),
+        }));
+        if (found.exists) return 'duplicate';
+        if (!found.lines.length) throw new OpRejected('La factura de esta devolución no existe en el servidor');
+        const lines = req.lines.map((l) => {
+          const src = found.lines.find((x) => x.lineNo === l.lineNo);
+          if (!src) throw new OpRejected(`La línea ${l.lineNo} no existe en la factura`);
+          return { sourceLineId: src.id, quantity: l.quantity, restock: l.restock };
+        });
+        const result = await issueCreditNote(
+          this.prisma.client,
+          {
+            tenantId,
+            userId: op.userId,
+            masterKey: getEnv().MASTER_KEY,
+            offline: {
+              documentId: p.documentId,
+              deviceId: device.id,
+              sequential: p.sequential,
+              issuedAt: new Date(p.issuedAt),
+              accessKey: p.accessKey,
+              cashMovementId: p.cashMovementId ?? undefined,
+            },
+          },
+          { ...req, buyer: req.buyer ?? null, lines },
+        );
+        await this.audit.recordStandalone(tenantId, op.userId, {
+          action: 'create',
+          entity: 'credit_note',
+          entityId: result.documentId,
+          after: { number: result.number, total: result.total, invoiceId: req.invoiceId, reason: req.reason, origin: 'desktop' },
         });
         await enqueueSriJob(this.queue, 'send', { tenantId, documentId: result.documentId });
         return { documentId: result.documentId, number: result.number, status: 'SIGNED' };

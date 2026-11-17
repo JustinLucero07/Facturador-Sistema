@@ -21,3 +21,5 @@
 - Migraciones: NUNCA `GRANT ... ON ALL TABLES` (reabre UPDATE/DELETE en `audit_log`); los permisos de tablas nuevas llegan por default privileges.
 - NestJS 12 es ESM: pruebas de apps Nest con Vitest + SWC (`tools/vitest-nest.mts`), no Jest.
 - UI: Angular Material (PrimeNG 22 requiere licencia de pago; no usarlo).
+- Caja de escritorio (`apps/desktop` + `libs/pos-local`): sin módulos nativos (SQLite = `node:sqlite`, argon2 = `hash-wasm`); no importar `@vektra/db` ni `@vektra/sri-core` completos ahí (usar `@vektra/db/uuid`, `@vektra/sri-core/calc`, `@vektra/sri-core/access-key`). Toda operación nueva de la caja va por la cola (`ctx.enqueue`) y su manejo en el servidor debe ser idempotente (`sync.service.ts`).
+- En Electron lanzado desde VS Code hay que quitar `ELECTRON_RUN_AS_NODE` (ya lo hace `nx serve desktop`).

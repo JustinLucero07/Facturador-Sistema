@@ -15,7 +15,7 @@ import {
   QuoteView,
   TicketData,
 } from '@vektra/shared-contracts';
-import { computeInvoice, parseInvoiceXml } from '@vektra/sri-core';
+import { computeInvoice, parseCreditNoteXml, parseInvoiceXml } from '@vektra/sri-core';
 import Decimal from 'decimal.js';
 import type { Response } from 'express';
 import { z } from 'zod';
@@ -45,7 +45,10 @@ export class PosService {
     if (!data.doc || !data.doc.electronic?.signedXml) throw new NotFoundException('Comprobante no encontrado');
     const { doc, tenant } = data;
     const electronic = data.doc.electronic;
-    const inv = parseInvoiceXml(electronic.authorizedXml ?? electronic.signedXml ?? '');
+    const xml = electronic.authorizedXml ?? electronic.signedXml ?? '';
+    const isNote = electronic.docType === '04';
+    const note = isNote ? parseCreditNoteXml(xml) : null;
+    const inv = note ? { ...note, payments: [] as { code: string; amount: string }[] } : parseInvoiceXml(xml);
     const [rates, settings] = await Promise.all([this.prisma.client.taxRate.findMany({ where: { taxCode: '2' } }), loadSriSettings(this.prisma.client)]);
     const label = (code: string) => rates.find((r) => r.percentageCode === code)?.label ?? code;
     const methodLabel = (m: string) => settings.paymentMethods.find((x) => x.method === m)?.label ?? m;
@@ -84,7 +87,16 @@ export class PosService {
       totalDiscount: inv.totals.totalDiscount,
       totalTax: inv.totals.totalTax,
       total: inv.totals.total,
-      payments: doc.payments.map((p) => {
+      ...(note
+        ? {
+            docLabel: 'NOTA DE CRÉDITO',
+            related: { label: 'FACTURA', number: note.modified.number, date: `${note.modified.issueDate.year}-${String(note.modified.issueDate.month).padStart(2, '0')}-${String(note.modified.issueDate.day).padStart(2, '0')}` },
+            reason: note.reason,
+          }
+        : {}),
+      payments: note
+        ? [{ label: (note.additionalInfo.find((a) => a.name === 'Reembolso')?.value ?? 'Reembolso'), amount: note.totals.total, cashReceived: null, change: null }]
+        : doc.payments.map((p) => {
         const received = p.cashReceived ? new Decimal(p.cashReceived.toString()) : null;
         return {
           label: methodLabel(p.method),

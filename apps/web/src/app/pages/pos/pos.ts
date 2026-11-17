@@ -24,7 +24,8 @@ import { loadPrefs, PosApi, PosPrefs, savePrefs } from './pos.api';
 import { SaleDoneDialog } from './sale-done-dialog';
 import { PendingSyncDialog } from './pending-sync-dialog';
 import { QuickProductDialog } from './quick-product-dialog';
-import { printCashReport } from './ticket-printer';
+import { refundMethods, ReturnDialog, ReturnResult } from './return-dialog';
+import { printCashReport, printTicket } from './ticket-printer';
 
 export interface CartLine {
   key: string;
@@ -96,6 +97,7 @@ export class PosPage implements OnInit {
   protected readonly busy = signal(false);
   protected readonly canDiscount = this.auth.can('sales.discount');
   protected readonly canQuote = this.auth.can('sales.quote');
+  protected readonly canReturn = this.auth.can('sales.void');
   protected readonly defaultWarehouseLabel = signal<string | undefined>(undefined);
 
   protected readonly emissionPoint = computed(() => this.config()?.emissionPoints.find((p) => p.id === this.prefs().emissionPointId) ?? null);
@@ -280,6 +282,31 @@ export class PosPage implements OnInit {
     if (found[0]) this.add(found[0]);
     this.notify.ok('Producto creado');
     this.focusSearch();
+  }
+
+  /** Devolución: nota de crédito sobre una venta (reembolso en efectivo sale de la caja abierta). */
+  protected async returnSale(): Promise<void> {
+    if (!this.canReturn) return this.notify.error('No tiene permiso para hacer devoluciones');
+    const cfg = this.config();
+    const ep = this.emissionPoint();
+    if (!cfg || !ep) return;
+    const res = (await firstValueFrom(
+      this.dialog
+        .open(ReturnDialog, {
+          data: { emissionPointId: ep.id, cashSessionId: this.session()?.id ?? null, methods: refundMethods(cfg.posPaymentMethods) },
+          maxWidth: '96vw',
+          autoFocus: 'input',
+        })
+        .afterClosed(),
+    )) as ReturnResult | undefined;
+    if (!res) return;
+    this.notify.ok(`Nota de crédito ${res.number} por ${money(res.total)}`);
+    void this.loadSession();
+    try {
+      await printTicket(await this.api.ticket(res.documentId), this.prefs().paperWidth);
+    } catch (e) {
+      this.notify.error(`No se pudo imprimir: ${(e as Error).message}`);
+    }
   }
 
   // ───────── Caja de escritorio ─────────
@@ -479,7 +506,7 @@ export class PosPage implements OnInit {
     const s = this.session();
     if (!s) return;
     const fresh = await this.api.cashSummary(s.id);
-    await printCashReport(fresh, this.auth.tenantName(), this.prefs().paperWidth);
+    await printCashReport(fresh, this.auth.tenantName(), this.prefs().paperWidth).catch((e: Error) => this.notify.error(`No se pudo imprimir: ${e.message.replace(/^.*Error: /, '')}`));
   }
 
   protected async closeCash(): Promise<void> {
@@ -492,7 +519,7 @@ export class PosPage implements OnInit {
     this.session.set(null);
     const diff = Number(closed.difference ?? 0);
     this.notify.ok(diff === 0 ? 'Caja cerrada sin diferencias' : `Caja cerrada con ${diff > 0 ? 'sobrante' : 'faltante'} de ${money(Math.abs(diff))}`);
-    await printCashReport(closed, this.auth.tenantName(), this.prefs().paperWidth);
+    await printCashReport(closed, this.auth.tenantName(), this.prefs().paperWidth).catch((e: Error) => this.notify.error(`No se pudo imprimir: ${e.message.replace(/^.*Error: /, '')}`));
   }
 
   // ───────── Teclado ─────────
@@ -510,6 +537,7 @@ export class PosPage implements OnInit {
       F4: () => void this.chooseCustomer(),
       F8: () => this.globalDiscount(),
       F12: () => void this.charge(),
+      F9: () => void this.returnSale(),
     };
     if (keys[ev.key]) {
       ev.preventDefault();

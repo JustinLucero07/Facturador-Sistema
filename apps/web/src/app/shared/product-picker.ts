@@ -94,7 +94,10 @@ export class ProductPicker {
     if (typeof v !== 'string' || !v.trim()) return;
     ev.preventDefault();
     const r = await this.search(v);
+    // Lector de barras: si hay coincidencia exacta de código, se agrega aunque haya otros parecidos (TOR-1 / TOR-10)
+    const exact = r.find((p) => p.code.toLowerCase() === v.trim().toLowerCase() || p.matchedUnitId !== null);
     if (r.length === 1) this.emit(r[0]);
+    else if (exact) this.emit(exact);
     else if (!r.length) this.notFound.emit(v.trim());
   }
 

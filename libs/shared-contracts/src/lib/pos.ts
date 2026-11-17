@@ -157,5 +157,10 @@ export interface TicketData {
   cashier: string | null;
   /** Link público al RIDE (para WhatsApp) */
   publicRideUrl: string;
+  /** "FACTURA" (por defecto) o "NOTA DE CRÉDITO" */
+  docLabel?: string;
+  /** Nota de crédito: comprobante que modifica */
+  related?: { label: string; number: string; date: string } | null;
+  reason?: string | null;
   buyerPhone: string | null;
 }

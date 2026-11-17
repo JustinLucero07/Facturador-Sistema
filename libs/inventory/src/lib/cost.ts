@@ -4,7 +4,7 @@ const D = Decimal.clone({ precision: 40, rounding: Decimal.ROUND_HALF_UP });
 type Num = string | number | Decimal;
 
 export const ENTRY_TYPES = ['INITIAL', 'PURCHASE', 'SALE_RETURN', 'ADJUSTMENT_IN', 'TRANSFER_IN'] as const;
-export const EXIT_TYPES = ['SALE', 'ADJUSTMENT_OUT', 'TRANSFER_OUT'] as const;
+export const EXIT_TYPES = ['SALE', 'ADJUSTMENT_OUT', 'TRANSFER_OUT', 'PURCHASE_RETURN'] as const;
 export type MovementKind = (typeof ENTRY_TYPES)[number] | (typeof EXIT_TYPES)[number];
 
 export function isEntry(type: MovementKind): boolean {

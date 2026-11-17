@@ -193,3 +193,43 @@ export function distributeDiscount(grossCents: number[], discountCents: number):
   }
   return parts;
 }
+
+/** Línea de la factura original con lo que ya se acreditó en notas anteriores. */
+export interface CreditableLine {
+  mainCode?: string | null;
+  auxCode?: string | null;
+  description: string;
+  quantity: Num;
+  unitPrice: Num;
+  discount: Num;
+  /** Impuestos de la factura original (tarifa vigente a su fecha de emisión) */
+  taxes: TaxRateRef[];
+  creditedQuantity: Num;
+  creditedDiscount: Num;
+}
+
+/**
+ * Línea de nota de crédito para devolver `quantity` unidades de una línea facturada.
+ * Precio e impuestos son los de la factura; el descuento se prorratea y, si se devuelve todo
+ * lo que queda, toma el saldo exacto (así la suma de las notas nunca supera la factura).
+ */
+export function creditLine(src: CreditableLine, quantity: Num): LineInput {
+  const q = dec(quantity);
+  const total = dec(src.quantity);
+  const remaining = total.minus(dec(src.creditedQuantity));
+  if (q.lte(0)) throw new CalculationError(`${src.description}: la cantidad a devolver debe ser mayor a cero`);
+  if (q.gt(remaining)) {
+    throw new CalculationError(`${src.description}: solo se pueden devolver ${remaining.toString()} (facturado ${total.toString()}, ya devuelto ${dec(src.creditedQuantity).toString()})`);
+  }
+  const discountLeft = dec(src.discount).minus(dec(src.creditedDiscount));
+  const discount = q.eq(remaining) ? discountLeft : D.min(discountLeft, money(dec(src.discount).times(q).div(total)));
+  return {
+    mainCode: src.mainCode,
+    auxCode: src.auxCode,
+    description: src.description,
+    quantity: q.toString(),
+    unitPrice: src.unitPrice,
+    discount: money(discount),
+    taxes: src.taxes,
+  };
+}

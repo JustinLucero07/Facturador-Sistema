@@ -5,5 +5,6 @@
   "private": true,
   "description": "Caja de escritorio de Vektra POS: factura sin internet y sincroniza sola",
   "author": "Vektra Systems",
-  "main": "main.js"
+  "main": "main.js",
+  "desktopName": "vektra-caja.desktop"
 }
