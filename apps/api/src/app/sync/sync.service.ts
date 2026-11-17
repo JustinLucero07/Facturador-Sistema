@@ -61,7 +61,7 @@ export class SyncService {
       db.tenant.findUniqueOrThrow({ where: { id: device.tenant_id } }),
       db.taxRate.findMany({ where: { active: true }, orderBy: { sortOrder: 'asc' } }),
       db.sriCatalog.findMany({ where: { catalog: 'id_type', active: true }, orderBy: { sortOrder: 'asc' } }),
-      this.license.status(),
+      this.license.status(device.tenant_id),
     ]);
 
     const data = await this.prisma.as({ tenantId: device.tenant_id, userId: null }, async (tx) => {

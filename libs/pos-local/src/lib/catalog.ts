@@ -203,6 +203,8 @@ export class LocalCatalog {
       priceListName: cfg?.priceLists.find((p) => p.id === r.price_list_id)?.name ?? null,
       creditLimit: r.credit_limit,
       creditDays: r.credit_days,
+      personType: null,
+      relatedParty: false,
       notes: null,
       active: !!r.active,
       customFields: {},

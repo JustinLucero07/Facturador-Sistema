@@ -60,11 +60,22 @@ const ID_TYPES = [
         <mat-form-field class="vk-full"><mat-label>Dirección</mat-label><input matInput [(ngModel)]="m.address" /></mat-form-field>
         <mat-form-field><mat-label>Límite de crédito ($)</mat-label><input matInput [(ngModel)]="m.creditLimit" inputmode="decimal" /></mat-form-field>
         <mat-form-field><mat-label>Días de crédito</mat-label><input matInput type="number" [(ngModel)]="m.creditDays" /></mat-form-field>
+        @if (m.idType === '06' || m.idType === '08') {
+          <mat-form-field>
+            <mat-label>Tipo de persona (ATS)</mat-label>
+            <mat-select [(ngModel)]="m.personType">
+              <mat-option [value]="null">— Sin indicar —</mat-option>
+              <mat-option value="01">Persona natural</mat-option>
+              <mat-option value="02">Sociedad</mat-option>
+            </mat-select>
+          </mat-form-field>
+        }
         <mat-form-field class="vk-full"><mat-label>Notas</mat-label><textarea matInput rows="2" [(ngModel)]="m.notes"></textarea></mat-form-field>
       </div>
       <div class="toggles">
         <mat-slide-toggle [(ngModel)]="m.isCustomer">Cliente</mat-slide-toggle>
         <mat-slide-toggle [(ngModel)]="m.isSupplier">Proveedor</mat-slide-toggle>
+        <mat-slide-toggle [(ngModel)]="m.relatedParty">Parte relacionada (ATS)</mat-slide-toggle>
         <mat-slide-toggle [(ngModel)]="m.active">Activo</mat-slide-toggle>
       </div>
     </mat-dialog-content>
@@ -98,6 +109,8 @@ export class PartyDialog {
     priceListId: this.party?.priceListId ?? null,
     creditLimit: this.party?.creditLimit ?? '0',
     creditDays: this.party?.creditDays ?? 0,
+    personType: (this.party?.personType ?? null) as '01' | '02' | null,
+    relatedParty: this.party?.relatedParty ?? false,
     notes: this.party?.notes ?? '',
     active: this.party?.active ?? true,
   };

@@ -34,12 +34,18 @@ export const clientSchema = z.object({
 });
 export type ClientRequest = z.infer<typeof clientSchema>;
 
+const rucListSchema = z
+  .array(z.string().trim().regex(/^\d{10}001$/, 'RUC inválido (13 dígitos terminados en 001)'))
+  .max(50, 'Máximo 50 RUC')
+  .transform((l) => [...new Set(l)]);
+
 export const createInstallationSchema = z.object({
   clientId: z.uuid(),
   planId: z.uuid(),
   name: nonEmpty('El nombre', 120),
   baseUrl: z.string().trim().max(300).nullable().optional(),
-  graceHours: z.number().int().min(1).max(720).default(48),
+  /** RUC autorizados (vacío = el RUC del cliente) */
+  rucs: rucListSchema.default([]),
 });
 export type CreateInstallationRequest = z.infer<typeof createInstallationSchema>;
 
@@ -48,12 +54,11 @@ export const updateInstallationSchema = z.object({
   name: nonEmpty('El nombre', 120).optional(),
   baseUrl: z.string().trim().max(300).nullable().optional(),
   status: z.enum(['ACTIVE', 'SUSPENDED', 'CANCELLED']).optional(),
-  graceHours: z.number().int().min(1).max(720).optional(),
+  rucs: rucListSchema.optional(),
   limitOverrides: limitsSchema.partial().nullable().optional(),
 });
 export type UpdateInstallationRequest = z.infer<typeof updateInstallationSchema>;
 
-export const offlineCodeSchema = z.object({ days: z.number().int().min(1).max(30) });
 
 /** Lo que envía cada instancia al validar su licencia. */
 export const licenseValidateSchema = z.object({
@@ -93,7 +98,7 @@ export interface InstallationItem {
   planName: string;
   status: 'ACTIVE' | 'SUSPENDED' | 'CANCELLED';
   baseUrl: string | null;
-  graceHours: number;
+  rucs: string[];
   lastSeenAt: string | null;
   appVersion: string | null;
   lastReport: Record<string, unknown> | null;

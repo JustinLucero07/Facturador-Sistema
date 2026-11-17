@@ -138,6 +138,10 @@ export const partySchema = z.object({
   priceListId: uuidSchema.nullable().optional(),
   creditLimit: dec('Límite de crédito', 2).default('0'),
   creditDays: z.number().int().min(0).max(3650).default(0),
+  /** ATS Tabla 14 (01 persona natural, 02 sociedad): con pasaporte o identificación del exterior */
+  personType: z.enum(['01', '02']).nullable().optional().transform((v) => v ?? null),
+  /** ATS: parte relacionada */
+  relatedParty: z.boolean().default(false),
   notes: optText(2000),
   active: z.boolean().default(true),
   customFields: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()])).default({}),

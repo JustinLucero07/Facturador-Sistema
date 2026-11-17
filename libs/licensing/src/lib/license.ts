@@ -4,9 +4,10 @@ import { createPrivateKey, createPublicKey, sign, verify } from 'node:crypto';
  * Licencia firmada por el Vektra Hub (Ed25519) y verificada por cada instancia con la llave pública.
  * Formato: `VKL1.<payload base64url>.<firma base64url>`.
  *
- * El Hub emite tokens de vida corta (`exp` = ahora + 48 h) en cada validación periódica, así la instancia
- * sigue funcionando hasta 48 h sin contacto. Un código de activación offline es el mismo token con un
- * `exp` mayor, entregado manualmente por Vektra.
+ * Modelo de venta: pago único. La licencia es PERMANENTE (`kind: 'perpetual'`, `exp: null`) y está
+ * atada a los RUC autorizados (`rucs`): una copia del sistema instalada en otro negocio no puede
+ * emitir con otro RUC. No depende del Hub: nunca vence ni se bloquea por falta de conexión.
+ * Se siguen aceptando los tokens antiguos con vencimiento (`periodic` / `offline`).
  */
 export const LICENSE_PREFIX = 'VKL1';
 export const DEFAULT_GRACE_HOURS = 48;
@@ -31,16 +32,18 @@ export interface LicensePayload {
   plan: string;
   status: 'active' | 'suspended';
   limits: PlanLimits;
-  /** Tipo: periódica (validación) u offline (código de activación) */
-  kind: 'periodic' | 'offline';
+  /** perpetual = permanente (pago único); periodic / offline = tokens antiguos con vencimiento */
+  kind: 'perpetual' | 'periodic' | 'offline';
+  /** RUC de las empresas autorizadas (licencia permanente) */
+  rucs?: string[];
   /** Emitido (segundos epoch) */
   iat: number;
-  /** Expira (segundos epoch) */
-  exp: number;
+  /** Expira (segundos epoch); null = no vence */
+  exp: number | null;
 }
 
 export type LicenseState =
-  | { state: 'valid'; payload: LicensePayload; hoursLeft: number }
+  | { state: 'valid'; payload: LicensePayload; hoursLeft: number | null }
   | { state: 'suspended'; payload: LicensePayload }
   | { state: 'expired'; payload: LicensePayload }
   | { state: 'invalid'; reason: string }
@@ -98,8 +101,18 @@ export function evaluateLicense(
   // Tolerancia de 5 min por desfase de reloj en el emisor.
   if (payload.iat > nowSec + 300) return { state: 'invalid', reason: 'Fecha de emisión en el futuro' };
   if (payload.status === 'suspended') return { state: 'suspended', payload };
+  if (payload.exp === null || payload.exp === undefined) {
+    if (payload.kind !== 'perpetual') return { state: 'invalid', reason: 'Licencia sin fecha de vencimiento' };
+    if (!payload.rucs?.length) return { state: 'invalid', reason: 'La licencia no indica las empresas (RUC) autorizadas' };
+    return { state: 'valid', payload, hoursLeft: null };
+  }
   if (nowSec >= payload.exp) return { state: 'expired', payload };
   return { state: 'valid', payload, hoursLeft: Math.floor((payload.exp - nowSec) / 3600) };
+}
+
+/** ¿La licencia autoriza a emitir con este RUC? Las licencias antiguas sin lista de RUC autorizan cualquiera. */
+export function licenseCoversRuc(payload: LicensePayload, ruc: string): boolean {
+  return !payload.rucs?.length || payload.rucs.includes(ruc);
 }
 
 /** ¿Puede la instancia emitir comprobantes? */

@@ -12,3 +12,5 @@ export * from './lib/ride/ride';
 export * from './lib/xml/parse-invoice';
 export * from './lib/xml/credit-note';
 export * from './lib/xml/withholding';
+export * from './lib/ats/ats';
+export * from './lib/ats/zip';

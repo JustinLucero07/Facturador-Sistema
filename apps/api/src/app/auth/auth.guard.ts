@@ -61,8 +61,8 @@ export class AuthGuard implements CanActivate {
 
     const isWrite = !['GET', 'HEAD', 'OPTIONS'].includes(req.method);
     if (isWrite && !session.isSupport && !this.reflector.getAllAndOverride<boolean>(ALLOW_WITHOUT_LICENSE, targets)) {
-      if (!(await this.license.canWrite())) {
-        const status = await this.license.status();
+      if (!(await this.license.canWrite(ctx.tenantId))) {
+        const status = await this.license.status(ctx.tenantId);
         throw new ForbiddenException(`${status.message} El sistema está en modo solo lectura.`);
       }
     }

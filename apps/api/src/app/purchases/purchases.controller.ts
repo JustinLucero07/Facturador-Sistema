@@ -1,7 +1,7 @@
 import { BadRequestException, Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ZodPipe } from '@vektra/nest-common';
-import { pageQuerySchema, PurchaseParsed, purchaseSchema, voidPurchaseSchema } from '@vektra/shared-contracts';
+import { pageQuerySchema, purchaseAtsSchema, PurchaseAtsRequest, PurchaseParsed, purchaseSchema, voidPurchaseSchema } from '@vektra/shared-contracts';
 import { z } from 'zod';
 import { RequirePermissions } from '../common/decorators';
 import { PurchasesService } from './purchases.service';
@@ -16,6 +16,13 @@ export class PurchasesController {
   @RequirePermissions('purchases.manage')
   list(@Query(new ZodPipe(listQuery)) q: z.output<typeof listQuery>) {
     return this.svc.list(q);
+  }
+
+  /** Catálogos del ATS para el formulario de compra: sustento (Tabla 5) y formas de pago (Tabla 13). */
+  @Get('ats-catalogs')
+  @RequirePermissions('purchases.manage')
+  atsCatalogs() {
+    return this.svc.atsCatalogs();
   }
 
   @Get(':id')
@@ -38,6 +45,14 @@ export class PurchasesController {
   @RequirePermissions('purchases.manage')
   create(@Body(new ZodPipe(purchaseSchema)) body: PurchaseParsed) {
     return this.svc.create(body);
+  }
+
+  /** Datos del ATS (sustento, forma de pago, parte relacionada). */
+  @Post(':id/ats')
+  @HttpCode(204)
+  @RequirePermissions('purchases.manage')
+  updateAts(@Param('id', ParseUUIDPipe) id: string, @Body(new ZodPipe(purchaseAtsSchema)) body: PurchaseAtsRequest) {
+    return this.svc.updateAts(id, body);
   }
 
   @Post(':id/void')

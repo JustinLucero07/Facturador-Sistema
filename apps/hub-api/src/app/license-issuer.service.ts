@@ -12,33 +12,35 @@ export class LicenseIssuer {
     return { ...(installation.plan.limits as unknown as PlanLimits), ...((installation.limitOverrides as Partial<PlanLimits> | null) ?? {}) };
   }
 
+  /** RUC autorizados: los de la instalación o, si no tiene, el del cliente. */
+  rucsFor(installation: Installation & { client: { ruc: string } }): string[] {
+    return installation.rucs.length ? installation.rucs : [installation.client.ruc];
+  }
+
   /**
-   * Firma una licencia. Periódica: expira en `graceHours` (48 h por defecto).
-   * Offline: expira en N días (código de activación manual).
+   * Firma la licencia PERMANENTE (pago único): no vence y está atada a la instalación y a sus RUC.
+   * Es el código de activación que se ingresa al instalar (o al autorizar un RUC nuevo).
    */
   async issue(
-    installation: Installation & { plan: Plan; client: { legalName: string; tradeName: string | null } },
-    kind: 'periodic' | 'offline',
-    opts: { days?: number; issuedBy?: string } = {},
-  ): Promise<{ token: string; expiresAt: Date }> {
-    const now = Math.floor(Date.now() / 1000);
-    const ttl = kind === 'offline' ? (opts.days ?? 7) * 86_400 : installation.graceHours * 3600;
-    const status = installation.status === 'ACTIVE' ? 'active' : 'suspended';
+    installation: Installation & { plan: Plan; client: { ruc: string; legalName: string; tradeName: string | null } },
+    opts: { issuedBy?: string; record?: boolean } = {},
+  ): Promise<{ token: string; rucs: string[] }> {
+    const rucs = this.rucsFor(installation);
     const payload: LicensePayload = {
       iid: installation.publicId,
       client: installation.client.tradeName ?? installation.client.legalName,
       plan: installation.plan.code,
-      status,
-      kind,
+      status: 'active',
+      kind: 'perpetual',
+      rucs,
       limits: this.limitsFor(installation),
-      iat: now,
-      exp: now + ttl,
+      iat: Math.floor(Date.now() / 1000),
+      exp: null,
     };
     const token = signLicense(payload, hubEnv().LICENSE_PRIVATE_KEY);
-    const expiresAt = new Date(payload.exp * 1000);
-    await this.prisma.db.licenseIssue.create({
-      data: { id: randomUUID(), installationId: installation.id, kind, status, expiresAt, issuedBy: opts.issuedBy ?? null },
+    if (opts.record !== false) await this.prisma.db.licenseIssue.create({
+      data: { id: randomUUID(), installationId: installation.id, kind: 'perpetual', status: 'active', expiresAt: null, issuedBy: opts.issuedBy ?? null },
     });
-    return { token, expiresAt };
+    return { token, rucs };
   }
 }

@@ -50,6 +50,12 @@ export const purchaseSchema = z
     lines: z.array(purchaseLineSchema).min(1, 'Agregue al menos una línea').max(500),
     notes: z.string().trim().max(1000).nullable().optional(),
     fromXml: z.boolean().default(false),
+    /** ATS: sustento tributario (Catálogo ATS Tabla 5) */
+    sustentoCode: z.string().regex(/^\d{2}$/, 'Elija el sustento tributario').nullable().optional(),
+    /** ATS: forma de pago (Tabla 13); obligatoria en el ATS sobre el monto que fija el SRI */
+    paymentCode: z.string().regex(/^\d{2}$/, 'Elija la forma de pago').nullable().optional(),
+    /** ATS: el proveedor es parte relacionada */
+    relatedParty: z.boolean().optional(),
     /** Recordar el código del proveedor para cada producto (próxima carga de XML) */
     rememberCodes: z.boolean().default(true),
     /** Contado (se registra el pago) o crédito (queda por pagar hasta el vencimiento) */
@@ -68,6 +74,19 @@ export const purchaseSchema = z
   .refine((v) => !!v.supplierId || !!v.newSupplier, { message: 'Elija o registre el proveedor', path: ['supplierId'] });
 export type PurchaseRequest = z.input<typeof purchaseSchema>;
 export type PurchaseParsed = z.output<typeof purchaseSchema>;
+
+/** Datos del ATS de una compra ya registrada (se pueden corregir antes de presentar el anexo). */
+export const purchaseAtsSchema = z.object({
+  sustentoCode: z.string().regex(/^\d{2}$/, 'Elija el sustento tributario'),
+  paymentCode: z.string().regex(/^\d{2}$/, 'Elija la forma de pago').nullable(),
+  relatedParty: z.boolean(),
+});
+export type PurchaseAtsRequest = z.input<typeof purchaseAtsSchema>;
+
+export interface PurchaseAtsCatalogs {
+  sustento: { code: string; description: string }[];
+  paymentForms: { code: string; description: string }[];
+}
 
 export const voidPurchaseSchema = z.object({ reason: z.string().trim().min(3, 'Indique el motivo').max(300) });
 
@@ -90,6 +109,10 @@ export interface PurchaseDetail extends PurchaseListItem {
   /** Cuenta por pagar de esta compra */
   payable: { dueDate: string; balance: string; status: 'OPEN' | 'PAID' | 'VOID' } | null;
   authorization: string | null;
+  /** ATS */
+  sustentoCode: string | null;
+  paymentCode: string | null;
+  relatedParty: boolean;
   warehouse: string;
   subtotal: string;
   totalDiscount: string;
@@ -119,6 +142,8 @@ export interface PurchaseXmlPreview {
   authorization: string;
   issueDate: string;
   duplicate: boolean;
+  /** Forma de pago declarada en el XML del proveedor (Tabla 24), para el ATS */
+  paymentCode: string | null;
   lines: {
     supplierCode: string | null;
     description: string;

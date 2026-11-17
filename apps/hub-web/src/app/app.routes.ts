@@ -11,7 +11,7 @@ export const appRoutes: Route[] = [
       { path: '', pathMatch: 'full', redirectTo: 'instalaciones' },
       { path: 'instalaciones', title: 'Instalaciones · Vektra Hub', loadComponent: () => import('./pages/installations').then((m) => m.InstallationsPage) },
       { path: 'clientes', title: 'Clientes · Vektra Hub', loadComponent: () => import('./pages/clients').then((m) => m.ClientsPage) },
-      { path: 'planes', title: 'Planes · Vektra Hub', loadComponent: () => import('./pages/plans').then((m) => m.PlansPage) },
+      { path: 'planes', title: 'Licencias · Vektra Hub', loadComponent: () => import('./pages/plans').then((m) => m.PlansPage) },
     ],
   },
   { path: '**', redirectTo: '' },

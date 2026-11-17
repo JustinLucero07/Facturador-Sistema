@@ -32,7 +32,7 @@ Complete en `.env`:
 
 ```bash
 docker compose up -d --build
-docker compose logs -f migrate worker   # debe decir "Licencia renovada (valid)"
+docker compose logs -f migrate worker   # con el Hub configurado: "Licencia permanente actualizada"
 ```
 
 El servicio `migrate` aplica migraciones (incluidas las políticas RLS) y crea permisos y el usuario de soporte.
@@ -47,5 +47,5 @@ Coloque un proxy con TLS delante del puerto `WEB_PORT` (por ejemplo, Caddy con c
 
 ## Notas
 
-- Si la VPS pierde contacto con el Hub, el sistema sigue funcionando **48 h**; luego bloquea la emisión hasta que vuelva la conexión o se ingrese un **código de activación offline** (Hub → Instalaciones → ⋮ → Código offline).
+- **Activación (pago único):** en el Hub, Instalaciones → ⋮ → **Código de activación (permanente)**; el administrador lo pega una vez en **Empresa → Licencia**. No vence y no depende de la conexión con el Hub. Solo autoriza los RUC indicados en la instalación (⋮ → RUC autorizados); para una empresa nueva, genere un código nuevo.
 - La base usa un rol sin privilegios (`vektra_app`) con Row Level Security: cada empresa solo ve sus datos.

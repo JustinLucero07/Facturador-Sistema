@@ -83,7 +83,10 @@ export interface LicenseStatus {
   lastValidatedAt: string | null;
   plan: string | null;
   client: string | null;
-  kind: 'periodic' | 'offline' | null;
+  /** perpetual = licencia permanente (pago único) */
+  kind: 'perpetual' | 'periodic' | 'offline' | null;
+  /** RUC autorizados (licencia permanente) */
+  rucs: string[] | null;
   limits: Record<string, unknown> | null;
   message: string;
 }

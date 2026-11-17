@@ -73,7 +73,7 @@ export interface WithholdingDraft {
     total: string;
   };
   /** Última retención hecha a este proveedor (para sugerir) */
-  previous: { sustentoCode: string; paymentCode: string | null; items: { withholdingCodeId: string; percentage: string }[] } | null;
+  previous: { sustentoCode: string; paymentCode: string | null; relatedParty?: boolean; items: { withholdingCodeId: string; percentage: string }[] } | null;
   existing: { id: string; number: string; total: string; status: EDocStatusCode }[];
   sustento: { code: string; description: string }[];
 }

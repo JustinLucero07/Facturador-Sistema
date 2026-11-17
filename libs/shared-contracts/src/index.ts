@@ -11,3 +11,4 @@ export * from './lib/sync';
 export * from './lib/purchases';
 export * from './lib/withholdings';
 export * from './lib/accounts';
+export * from './lib/reports';

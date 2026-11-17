@@ -20,8 +20,11 @@ import { Toast } from '../hub';
       <div class="vk-page-header">
         <div>
           <h1>Instalaciones</h1>
-          <p>Cada VPS de cliente con Vektra POS. Validan su licencia cada hora.</p>
+          <p>Cada servidor de cliente con Vektra POS. La licencia es permanente; las que tienen el Hub configurado reportan su estado cada hora.</p>
         </div>
+        @if (!showForm()) {
+          <button matButton="filled" type="button" (click)="showForm.set(true)"><span class="material-symbols-outlined">add</span> Nueva instalación</button>
+        }
       </div>
 
       @if (secret(); as s) {
@@ -38,8 +41,8 @@ import { Toast } from '../hub';
 
       @if (offline(); as o) {
         <section class="vk-card secret">
-          <h2>Código de activación offline</h2>
-          <p>Válido hasta {{ o.expiresAt | date: 'medium' }}. El cliente lo pega en Empresa → Licencia.</p>
+          <h2>Código de activación permanente</h2>
+          <p>No vence. Autoriza los RUC: <strong>{{ o.rucs.join(', ') }}</strong>. Se pega una sola vez en Empresa → Licencia de la instalación.</p>
           <pre class="vk-mono code">{{ o.code }}</pre>
           <div class="vk-actions">
             <button matButton (click)="copy(o.code)">Copiar</button>
@@ -49,6 +52,46 @@ import { Toast } from '../hub';
       }
 
       <div class="grid">
+        @if (showForm()) {
+        <form class="vk-card new" [formGroup]="form" (ngSubmit)="create()">
+          <h2>Nueva instalación</h2>
+          <div class="fields">
+          <mat-form-field class="w">
+            <mat-label>Cliente</mat-label>
+            <mat-select formControlName="clientId">
+              @for (c of clients(); track c.id) {
+                <mat-option [value]="c.id">{{ c.tradeName ?? c.legalName }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field class="w">
+            <mat-label>Licencia</mat-label>
+            <mat-select formControlName="planId">
+              @for (p of plans(); track p.id) {
+                <mat-option [value]="p.id">{{ p.name }} · {{ p.priceMonthly | currency }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field class="w">
+            <mat-label>Nombre</mat-label>
+            <input matInput formControlName="name" placeholder="VPS Ferretería X" />
+          </mat-form-field>
+          <mat-form-field class="w">
+            <mat-label>URL del sistema (opcional)</mat-label>
+            <input matInput formControlName="baseUrl" placeholder="https://facturas.ferreteriax.com" />
+          </mat-form-field>
+          <mat-form-field class="w">
+            <mat-label>RUC autorizados (separados por coma)</mat-label>
+            <input matInput formControlName="rucs" placeholder="Vacío = el RUC del cliente" />
+            <mat-hint>Empresas que podrán facturar en esta instalación</mat-hint>
+          </mat-form-field>
+          </div>
+          <div class="vk-actions">
+            <button matButton type="button" (click)="showForm.set(false)">Cancelar</button>
+            <button matButton="filled" type="submit">Crear instalación</button>
+          </div>
+        </form>
+        }
         <div class="vk-table-wrap">
           <table mat-table [dataSource]="items()">
             <ng-container matColumnDef="name">
@@ -56,11 +99,15 @@ import { Toast } from '../hub';
               <td mat-cell *matCellDef="let i">
                 <strong>{{ i.name }}</strong>
                 <div class="vk-muted">{{ i.clientName }} · <span class="vk-mono">{{ i.publicId }}</span></div>
+                <div class="vk-muted small">RUC autorizados: {{ i.rucs.length ? i.rucs.join(', ') : 'el del cliente' }}</div>
               </td>
             </ng-container>
             <ng-container matColumnDef="plan">
-              <th mat-header-cell *matHeaderCellDef>Plan</th>
-              <td mat-cell *matCellDef="let i">{{ i.planName }}</td>
+              <th mat-header-cell *matHeaderCellDef>Licencia</th>
+              <td mat-cell *matCellDef="let i">
+                <strong>{{ i.planName }}</strong>
+                <div class="vk-muted small">Permanente</div>
+              </td>
             </ng-container>
             <ng-container matColumnDef="seen">
               <th mat-header-cell *matHeaderCellDef>Último contacto</th>
@@ -110,13 +157,9 @@ import { Toast } from '../hub';
               <td mat-cell *matCellDef="let i">
                 <button matIconButton [matMenuTriggerFor]="m" aria-label="Acciones"><span class="material-symbols-outlined">more_vert</span></button>
                 <mat-menu #m="matMenu" xPosition="before">
-                  <button mat-menu-item (click)="offlineCode(i)">Código offline (7 días)</button>
+                  <button mat-menu-item (click)="offlineCode(i)">Código de activación (permanente)</button>
+                  <button mat-menu-item (click)="editRucs(i)">RUC autorizados…</button>
                   <button mat-menu-item (click)="rotate(i)">Regenerar secreto</button>
-                  @if (i.status === 'ACTIVE') {
-                    <button mat-menu-item (click)="setStatus(i, 'SUSPENDED')">Suspender (falta de pago)</button>
-                  } @else {
-                    <button mat-menu-item (click)="setStatus(i, 'ACTIVE')">Reactivar</button>
-                  }
                 </mat-menu>
               </td>
             </ng-container>
@@ -128,46 +171,19 @@ import { Toast } from '../hub';
           }
         </div>
 
-        <form class="vk-card" [formGroup]="form" (ngSubmit)="create()">
-          <h2>Nueva instalación</h2>
-          <mat-form-field class="w">
-            <mat-label>Cliente</mat-label>
-            <mat-select formControlName="clientId">
-              @for (c of clients(); track c.id) {
-                <mat-option [value]="c.id">{{ c.tradeName ?? c.legalName }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
-          <mat-form-field class="w">
-            <mat-label>Plan</mat-label>
-            <mat-select formControlName="planId">
-              @for (p of plans(); track p.id) {
-                <mat-option [value]="p.id">{{ p.name }} · {{ p.priceMonthly | currency }}/mes</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
-          <mat-form-field class="w">
-            <mat-label>Nombre</mat-label>
-            <input matInput formControlName="name" placeholder="VPS Ferretería X" />
-          </mat-form-field>
-          <mat-form-field class="w">
-            <mat-label>URL del sistema (opcional)</mat-label>
-            <input matInput formControlName="baseUrl" placeholder="https://facturas.ferreteriax.com" />
-          </mat-form-field>
-          <div class="vk-actions"><button matButton="filled" type="submit">Crear</button></div>
-        </form>
       </div>
     </div>
   `,
   styles: `
-    .grid { display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(280px, 1fr); gap: 16px; align-items: start; }
+    .grid { display: flex; flex-direction: column; gap: 20px; }
+    .new .fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0 16px; }
     h2 { font: var(--mat-sys-title-medium); margin: 0 0 12px; }
     .w { width: 100%; }
     .small { font: var(--mat-sys-body-small); margin-top: 2px; }
     .secret { margin-bottom: 16px; border-color: var(--mat-sys-primary); }
     pre { background: var(--mat-sys-surface-container); padding: 12px; border-radius: 8px; white-space: pre-wrap; word-break: break-all; }
     .code { max-height: 120px; overflow: auto; }
-    @media (max-width: 959px) { .grid { grid-template-columns: 1fr; } }
+
   `,
 })
 export class InstallationsPage implements OnInit {
@@ -177,7 +193,8 @@ export class InstallationsPage implements OnInit {
   protected readonly clients = signal<ClientItem[]>([]);
   protected readonly plans = signal<PlanItem[]>([]);
   protected readonly secret = signal<InstallationCredentials | null>(null);
-  protected readonly offline = signal<{ code: string; expiresAt: string } | null>(null);
+  protected readonly showForm = signal(false);
+  protected readonly offline = signal<{ code: string; rucs: string[] } | null>(null);
   protected readonly columns = ['name', 'plan', 'seen', 'health', 'status', 'actions'];
   protected readonly statusLabel: Record<string, string> = { ACTIVE: 'Activa', SUSPENDED: 'Suspendida', CANCELLED: 'Cancelada' };
   protected readonly form = new FormGroup({
@@ -185,7 +202,12 @@ export class InstallationsPage implements OnInit {
     planId: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     name: new FormControl('', { nonNullable: true, validators: [Validators.required] }),
     baseUrl: new FormControl<string | null>(null),
+    rucs: new FormControl('', { nonNullable: true }),
   });
+
+  private parseRucs(text: string): string[] {
+    return text.split(/[\s,;]+/).map((x) => x.trim()).filter(Boolean);
+  }
 
   async ngOnInit(): Promise<void> {
     const [c, p] = await Promise.all([
@@ -218,8 +240,10 @@ export class InstallationsPage implements OnInit {
   protected async create(): Promise<void> {
     if (this.form.invalid) return this.form.markAllAsTouched();
     try {
-      this.secret.set(await firstValueFrom(this.http.post<InstallationCredentials>('/api/hub/installations', this.form.getRawValue())));
+      const v = this.form.getRawValue();
+      this.secret.set(await firstValueFrom(this.http.post<InstallationCredentials>('/api/hub/installations', { ...v, rucs: this.parseRucs(v.rucs) })));
       this.form.reset();
+      this.showForm.set(false);
       await this.load();
     } catch (e) {
       this.toast.error(e);
@@ -237,16 +261,19 @@ export class InstallationsPage implements OnInit {
 
   protected async offlineCode(i: InstallationItem): Promise<void> {
     try {
-      this.offline.set(await firstValueFrom(this.http.post<{ code: string; expiresAt: string }>(`/api/hub/installations/${i.id}/offline-code`, { days: 7 })));
+      this.offline.set(await firstValueFrom(this.http.post<{ code: string; rucs: string[] }>(`/api/hub/installations/${i.id}/activation-code`, {})));
     } catch (e) {
       this.toast.error(e);
     }
   }
 
-  protected async setStatus(i: InstallationItem, status: 'ACTIVE' | 'SUSPENDED'): Promise<void> {
+  /** Cambia los RUC autorizados; luego hay que generar un código nuevo (o se aplica solo si la instalación reporta al Hub). */
+  protected async editRucs(i: InstallationItem): Promise<void> {
+    const text = prompt(`RUC autorizados de "${i.name}" (separados por coma):`, i.rucs.join(', '));
+    if (text === null) return;
     try {
-      await firstValueFrom(this.http.patch(`/api/hub/installations/${i.id}`, { status }));
-      this.toast.ok(status === 'SUSPENDED' ? 'Suspendida: se aplicará en la próxima validación (máx. 1 h)' : 'Reactivada');
+      await firstValueFrom(this.http.patch(`/api/hub/installations/${i.id}`, { rucs: this.parseRucs(text) }));
+      this.toast.ok('RUC actualizados: genere el código de activación y entréguelo al cliente');
       await this.load();
     } catch (e) {
       this.toast.error(e);

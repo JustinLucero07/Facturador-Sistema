@@ -58,6 +58,13 @@ const NAV: NavSection[] = [
     ],
   },
   {
+    title: 'Reportes',
+    items: [
+      { label: 'Reportes', icon: 'bar_chart', link: '/reportes', permission: 'reports.read' },
+      { label: 'ATS', icon: 'description', link: '/ats', permission: 'reports.tax' },
+    ],
+  },
+  {
     title: 'Administración',
     items: [
       { label: 'Empresa', icon: 'storefront', link: '/empresa', permission: 'company.read' },
@@ -81,6 +88,7 @@ const NAV: NavSection[] = [
   styleUrl: './shell.scss',
 })
 export class Shell implements OnInit, OnDestroy {
+  protected readonly version = '1.0';
   protected readonly auth = inject(AuthService);
   protected readonly license = inject(LicenseStore);
   private readonly notify = inject(Notify);

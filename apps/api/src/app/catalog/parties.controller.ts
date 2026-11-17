@@ -70,6 +70,8 @@ export class PartiesService {
       priceListName: r.priceListId ? (listName.get(r.priceListId) ?? null) : null,
       creditLimit: r.creditLimit.toFixed(2),
       creditDays: r.creditDays,
+      personType: (r.personType as PartyItem['personType']) ?? null,
+      relatedParty: r.relatedParty,
       notes: r.notes,
       active: r.active,
       customFields: r.customFields as PartyItem['customFields'],
@@ -86,6 +88,8 @@ export class PartiesService {
     const err = identificationError(input.idType, input.identification);
     if (err) throw new BadRequestException({ message: 'Revise los datos', fields: { identification: err } });
     if (!input.isCustomer && !input.isSupplier) throw new BadRequestException({ message: 'Revise los datos', fields: { isCustomer: 'Marque si es cliente, proveedor o ambos' } });
+    // Tipo de persona (ATS Tabla 14): solo aplica con pasaporte / identificación del exterior
+    if (input.idType !== '06' && input.idType !== '08') input = { ...input, personType: null };
     const tenantId = currentContext().tenantId as string;
     const newId = id ?? uuidv7();
     await this.prisma.tx(async (tx) => {

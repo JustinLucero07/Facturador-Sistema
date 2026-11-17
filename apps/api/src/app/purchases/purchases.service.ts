@@ -3,7 +3,7 @@ import { Prisma, Tx, uuidv7 } from '@vektra/db';
 import { AccountsError, addDays, createItem, recordMovement } from '@vektra/accounts';
 import { loadSriSettings } from '@vektra/einvoice';
 import { allowsNegativeStock, applyMovement, InventoryError, toBaseUnits } from '@vektra/inventory';
-import type { Paginated, PurchaseDetail, PurchaseListItem, PurchaseParsed, PurchaseXmlPreview } from '@vektra/shared-contracts';
+import type { Paginated, PurchaseAtsCatalogs, PurchaseAtsRequest, PurchaseDetail, PurchaseListItem, PurchaseParsed, PurchaseXmlPreview } from '@vektra/shared-contracts';
 import { validateCedula, validateRuc } from '@vektra/shared-domain';
 import { CalculationError, computeInvoice, dec, parseInvoiceXml } from '@vektra/sri-core';
 import { AuditService } from '../audit/audit.service';
@@ -96,6 +96,9 @@ export class PurchasesService {
       ...this.listItem(r, sup.get(r.supplierId), r.lines.length),
       payable: payable ? { dueDate: payable.dueDate.toISOString().slice(0, 10), balance: payable.balance.toFixed(2), status: payable.status as 'OPEN' | 'PAID' | 'VOID' } : null,
       authorization: r.authorization,
+      sustentoCode: r.sustentoCode,
+      paymentCode: r.paymentCode,
+      relatedParty: r.relatedParty,
       warehouse: wh?.name ?? '',
       subtotal: r.subtotal.toFixed(2),
       totalDiscount: r.totalDiscount.toFixed(2),
@@ -180,6 +183,7 @@ export class PurchasesService {
         authorization: inv.accessKey,
         issueDate,
         duplicate,
+        paymentCode: inv.payments[0]?.code ?? null,
         lines,
         totals: { subtotal: inv.totals.subtotal, tax: inv.totals.totalTax, total: inv.totals.total },
       };
@@ -247,6 +251,9 @@ export class PurchasesService {
             taxSummary: computed.totals.taxGroups as object[],
             notes: input.notes ?? null,
             fromXml: input.fromXml,
+            sustentoCode: input.sustentoCode ?? null,
+            paymentCode: input.paymentCode ?? (input.payment.mode === 'CASH' ? await this.sriPaymentCode(input.payment.method ?? 'efectivo') : null),
+            relatedParty: input.relatedParty ?? (await tx.party.findFirst({ where: { id: supplierId }, select: { relatedParty: true } }))?.relatedParty ?? false,
             createdBy: userId,
           },
         });
@@ -336,6 +343,35 @@ export class PurchasesService {
   }
 
   /** Pago inmediato de una compra al contado; en efectivo con caja abierta sale de esa caja. */
+  /** Forma de pago del SRI (Tabla 24 = ATS Tabla 13) del medio de pago interno (parámetro payment_methods). */
+  private async sriPaymentCode(method: string): Promise<string | null> {
+    const settings = await loadSriSettings(this.prisma.client);
+    return settings.paymentMethods.find((m) => m.method === method)?.sriCode ?? null;
+  }
+
+  async atsCatalogs(): Promise<PurchaseAtsCatalogs> {
+    const rows = await this.prisma.client.sriCatalog.findMany({ where: { catalog: { in: ['ats_sustento', 'payment_method'] }, active: true }, orderBy: { sortOrder: 'asc' } });
+    const pick = (c: string) => rows.filter((r) => r.catalog === c).map((r) => ({ code: r.code, description: r.description }));
+    return { sustento: pick('ats_sustento'), paymentForms: pick('payment_method') };
+  }
+
+  /** Corrige sustento, forma de pago y parte relacionada (datos del ATS) de una compra registrada. */
+  async updateAts(id: string, input: PurchaseAtsRequest): Promise<void> {
+    const sustento = await this.prisma.client.sriCatalog.findFirst({ where: { catalog: 'ats_sustento', code: input.sustentoCode, active: true } });
+    if (!sustento) throw new UnprocessableEntityException('Sustento tributario inválido');
+    if (input.paymentCode) {
+      const pay = await this.prisma.client.sriCatalog.findFirst({ where: { catalog: 'payment_method', code: input.paymentCode, active: true } });
+      if (!pay) throw new UnprocessableEntityException('Forma de pago inválida');
+    }
+    await this.prisma.tx(async (tx) => {
+      const before = await tx.purchase.findFirst({ where: { id }, select: { sustentoCode: true, paymentCode: true, relatedParty: true, status: true } });
+      if (!before) throw new NotFoundException('Compra no encontrada');
+      const data = { sustentoCode: input.sustentoCode, paymentCode: input.paymentCode ?? null, relatedParty: input.relatedParty };
+      await tx.purchase.update({ where: { id }, data });
+      await this.audit.record(tx, { action: 'update', entity: 'purchase', entityId: id, before, after: data });
+    });
+  }
+
   private async payNow(tx: Tx, tenantId: string, userId: string, supplierId: string, itemId: string, amount: string, method: string, cashSessionId: string | null, reason: string) {
     const methods = (await loadSriSettings(this.prisma.client)).paymentMethods;
     const def = methods.find((m) => m.method === method);

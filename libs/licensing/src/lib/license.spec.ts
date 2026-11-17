@@ -2,6 +2,7 @@ import { generateKeyPairSync } from 'node:crypto';
 import {
   canIssueDocuments,
   evaluateLicense,
+  licenseCoversRuc,
   LicensePayload,
   signLicense,
   verifyLicense,
@@ -82,5 +83,30 @@ describe('licencia', () => {
 
   it('sin token = missing', () => {
     expect(evaluateLicense(null, keys.pub, now).state).toBe('missing');
+  });
+
+  it('licencia permanente: no vence y está atada a los RUC autorizados', () => {
+    const token = signLicense(payload({ kind: 'perpetual', exp: null, rucs: ['0190012345001'] }), keys.priv);
+    const in10y = new Date(now.getTime() + 10 * 365 * 86_400_000);
+    const st = evaluateLicense(token, keys.pub, in10y, 'inst-1');
+    expect(st).toMatchObject({ state: 'valid', hoursLeft: null });
+    expect(canIssueDocuments(st)).toBe(true);
+    if (st.state !== 'valid') throw new Error('debe ser válida');
+    expect(licenseCoversRuc(st.payload, '0190012345001')).toBe(true);
+    expect(licenseCoversRuc(st.payload, '1790000000001')).toBe(false);
+    // Otra instalación no puede usarla
+    expect(evaluateLicense(token, keys.pub, now, 'inst-2')).toMatchObject({ state: 'invalid' });
+  });
+
+  it('una licencia sin vencimiento debe ser permanente y nombrar los RUC', () => {
+    expect(evaluateLicense(signLicense(payload({ exp: null }), keys.priv), keys.pub, now)).toMatchObject({ state: 'invalid' });
+    expect(evaluateLicense(signLicense(payload({ kind: 'perpetual', exp: null, rucs: [] }), keys.priv), keys.pub, now)).toMatchObject({
+      state: 'invalid',
+      reason: expect.stringMatching(/RUC/),
+    });
+  });
+
+  it('las licencias antiguas sin lista de RUC autorizan cualquier empresa', () => {
+    expect(licenseCoversRuc(payload(), '1790000000001')).toBe(true);
   });
 });

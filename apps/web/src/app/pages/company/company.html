@@ -110,11 +110,18 @@
               <dt>Plan</dt>
               <dd class="cap">{{ s.plan }}</dd>
             }
-            @if (s.expiresAt) {
+            @if (s.kind === 'perpetual') {
+              <dt>Vigencia</dt>
+              <dd>Permanente (no vence)</dd>
+            } @else if (s.expiresAt) {
               <dt>Válida hasta</dt>
               <dd>{{ s.expiresAt | date: 'medium' }}</dd>
             }
-            @if (s.lastValidatedAt) {
+            @if (s.rucs?.length) {
+              <dt>RUC autorizados</dt>
+              <dd class="vk-mono">{{ s.rucs.join(', ') }}</dd>
+            }
+            @if (s.lastValidatedAt && s.kind !== 'perpetual') {
               <dt>Última validación</dt>
               <dd>{{ s.lastValidatedAt | date: 'medium' }}</dd>
             }
@@ -124,7 +131,7 @@
           <mat-form-field class="code-field">
             <mat-label>Código de activación</mat-label>
             <textarea matInput rows="3" [formControl]="activationCode" class="vk-mono" placeholder="VKL1…"></textarea>
-            <mat-hint>Úselo solo si Vektra se lo entrega (por ejemplo, si su servidor no tiene internet)</mat-hint>
+            <mat-hint>Lo entrega Vektra Systems al instalar o al autorizar una empresa (RUC) nueva</mat-hint>
           </mat-form-field>
           <div class="vk-actions">
             <button matButton="tonal" (click)="activate()">Activar</button>

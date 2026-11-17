@@ -862,6 +862,10 @@ model Party {
   priceListId    String?  @map("price_list_id") @db.Uuid
   creditLimit    Decimal  @default(0) @map("credit_limit") @db.Decimal(14, 2)
   creditDays     Int      @default(0) @map("credit_days")
+  /// ATS Tabla 14 (01 persona natural, 02 sociedad): requerido con pasaporte / identificación del exterior
+  personType     String?  @map("person_type") @db.Char(2)
+  /// ATS: parte relacionada
+  relatedParty   Boolean  @default(false) @map("related_party")
   notes          String?
   customFields   Json     @default("{}") @map("custom_fields")
   active         Boolean  @default(true)
@@ -1063,6 +1067,12 @@ model Purchase {
   notes                  String?
   /// Se cargó desde el XML autorizado del proveedor
   fromXml                Boolean   @default(false) @map("from_xml")
+  /// ATS: sustento tributario (Catálogo ATS Tabla 5)
+  sustentoCode           String?   @map("sustento_code") @db.Char(2)
+  /// ATS: forma de pago (Catálogo ATS Tabla 13 = Ficha Tabla 24)
+  paymentCode            String?   @map("payment_code") @db.Char(2)
+  /// ATS: el proveedor es parte relacionada
+  relatedParty           Boolean   @default(false) @map("related_party")
   createdBy              String?   @map("created_by") @db.Uuid
   createdAt              DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   voidedAt               DateTime? @map("voided_at") @db.Timestamptz(3)

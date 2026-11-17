@@ -99,6 +99,16 @@ export const SEED_SETTINGS: { key: string; value: unknown; note: string }[] = [
     value: null,
     note: 'Plazo para enviar al SRI un comprobante emitido sin conexión (error 65 "Fecha de emisión extemporánea"). La Ficha v2.34 no lo fija: confirmar con el contador. null = solo alertar por antigüedad',
   },
+  {
+    key: 'ats',
+    value: {
+      paymentFormThreshold: '500.00',
+      noWithholdingConcept: '332',
+      includeElectronicSales: true,
+      electronicSalesInTotals: true,
+    },
+    note: 'Ficha ATS 07/02/2025: formaPago sobre USD 500 (desde 20/12/2023); 332 = compra sin retención de renta. Confirmar con el contador si las ventas electrónicas van en el detalle y en el total de ventas',
+  },
   { key: 'provider_ruc', value: null, note: 'Ficha v2.34 Anexo 26 (Res. NAC-DGERCGC26-00000027): RUC del proveedor del sistema en <infoAdicional> "RUC Proveedor"' },
 ];
 
@@ -131,6 +141,12 @@ export const SEED_ATS_SUSTENTO = [
   ['13', 'Valores reconocidos por entidades del sector público a favor de sujetos pasivos'],
   ['14', 'Valores facturados por socios a operadoras de transporte (que no constituyen gasto de dicha operadora)'],
   ['15', 'Pagos efectuados por consumos propios y de terceros de servicios digitales'],
+] as const;
+
+/** Catálogo ATS, Tabla 14: tipo de proveedor / cliente con pasaporte o identificación del exterior. */
+export const SEED_ATS_PERSON_TYPES = [
+  ['01', 'Persona natural'],
+  ['02', 'Sociedad'],
 ] as const;
 
 /** Catálogo ATS, Tabla 4: tipos de comprobante de compra que se registran en el sistema. */
@@ -183,6 +199,7 @@ export async function seedSriConfig(prisma: PrismaClient): Promise<void> {
     ['doc_type', SEED_DOC_TYPES],
     ['ats_sustento', SEED_ATS_SUSTENTO],
     ['ats_doc_type', SEED_ATS_DOC_TYPES],
+    ['ats_person_type', SEED_ATS_PERSON_TYPES],
   ];
   for (const [catalog, rows] of catalogs) {
     let order = 0;

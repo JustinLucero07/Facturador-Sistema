@@ -8,7 +8,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { Router, RouterLink } from '@angular/router';
-import type { CatalogLookups, ProductSearchItem, PurchaseRequest, PurchaseXmlPreview } from '@vektra/shared-contracts';
+import type { CatalogLookups, ProductSearchItem, PurchaseAtsCatalogs, PurchaseRequest, PurchaseXmlPreview } from '@vektra/shared-contracts';
 import { computeInvoice } from '@vektra/sri-core/calc';
 import { firstValueFrom } from 'rxjs';
 import { apiMessage } from '../../core/http';
@@ -150,6 +150,24 @@ let seq = 0;
               </mat-form-field>
             }
           </div>
+          <fieldset class="ats">
+            <legend>Datos para el ATS</legend>
+            <mat-form-field>
+              <mat-label>Sustento tributario</mat-label>
+              <mat-select [(ngModel)]="sustentoCode">
+                <mat-option [value]="null">— Elegir después —</mat-option>
+                @for (s of atsCatalogs()?.sustento ?? []; track s.code) { <mat-option [value]="s.code">{{ s.code }} · {{ s.description }}</mat-option> }
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Forma de pago (SRI)</mat-label>
+              <mat-select [(ngModel)]="paymentCode">
+                <mat-option [value]="null">{{ paymentMode === 'CASH' ? 'Según el medio de pago' : '— Elegir después —' }}</mat-option>
+                @for (f of atsCatalogs()?.paymentForms ?? []; track f.code) { <mat-option [value]="f.code">{{ f.code }} · {{ f.description }}</mat-option> }
+              </mat-select>
+            </mat-form-field>
+            <mat-checkbox [(ngModel)]="relatedParty">El proveedor es parte relacionada</mat-checkbox>
+          </fieldset>
           <mat-checkbox [(ngModel)]="rememberCodes">Recordar los códigos del proveedor para la próxima carga de XML</mat-checkbox>
           <mat-form-field class="notes">
             <mat-label>Observaciones</mat-label>
@@ -189,6 +207,10 @@ let seq = 0;
     .empty { padding: 16px 0; }
     .foot { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 16px; margin-top: 16px; align-items: start; }
     .opts { display: flex; flex-direction: column; gap: 12px; }
+    .ats { border: 1px solid var(--mat-sys-outline-variant); border-radius: 12px; padding: 8px 14px 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; margin: 0; }
+    .ats legend { font: var(--mat-sys-label-large); padding: 0 6px; }
+    .ats mat-checkbox { grid-column: 1 / -1; }
+    @media (max-width: 599px) { .ats { grid-template-columns: 1fr; } }
     .notes { width: 100%; }
     .pay { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; }
     .pay label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
@@ -226,6 +248,10 @@ export class PurchaseFormPage implements OnInit {
   protected paymentMode: 'CREDIT' | 'CASH' = 'CREDIT';
   protected payMethod = 'transferencia';
   protected dueDate = '';
+  protected sustentoCode: string | null = null;
+  protected paymentCode: string | null = null;
+  protected relatedParty = false;
+  protected readonly atsCatalogs = signal<PurchaseAtsCatalogs | null>(null);
   private fromXml = false;
 
   protected readonly totals = computed(() => {
@@ -248,6 +274,9 @@ export class PurchaseFormPage implements OnInit {
   async ngOnInit(): Promise<void> {
     const lk = await this.catalog.lookups();
     this.lookups.set(lk);
+    firstValueFrom(this.http.get<PurchaseAtsCatalogs>('/api/purchases/ats-catalogs'))
+      .then((c) => this.atsCatalogs.set(c))
+      .catch(() => undefined);
     this.warehouseId = lk.warehouses.find((w) => w.isDefault)?.id ?? lk.warehouses[0]?.id ?? '';
   }
 
@@ -300,7 +329,10 @@ export class PurchaseFormPage implements OnInit {
     if (!id) return;
     const p = await this.catalog.partyByIdentification(id).catch(() => null);
     this.supplierId.set(p?.id ?? null);
-    if (p) this.supplierName = p.name;
+    if (p) {
+      this.supplierName = p.name;
+      this.relatedParty = p.relatedParty;
+    }
   }
 
   protected async loadXml(ev: Event): Promise<void> {
@@ -320,6 +352,7 @@ export class PurchaseFormPage implements OnInit {
       this.number = x.number;
       this.authorization = x.authorization;
       this.issueDate = x.issueDate;
+      if (x.paymentCode) this.paymentCode = x.paymentCode;
       this.xmlTotal.set(x.totals.total);
       this.lines.set(
         x.lines.map((l) => ({
@@ -362,6 +395,9 @@ export class PurchaseFormPage implements OnInit {
       notes: this.notes.trim() || null,
       fromXml: this.fromXml,
       rememberCodes: this.rememberCodes,
+      sustentoCode: this.sustentoCode,
+      paymentCode: this.paymentCode,
+      relatedParty: this.relatedParty,
       payment: this.paymentMode === 'CASH' ? { mode: 'CASH', method: this.payMethod } : { mode: 'CREDIT', dueDate: this.dueDate || null },
       lines: this.lines().map((l) => ({
         productId: l.productId,

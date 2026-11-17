@@ -159,6 +159,7 @@ export class WithholdingDialog implements OnInit {
       if (d.previous) {
         this.sustentoCode = d.previous.sustentoCode;
         this.paymentCode = d.previous.paymentCode ?? '';
+        this.relatedParty = d.previous.relatedParty ?? false;
         for (const p of d.previous.items) {
           const c = this.codes().find((x) => x.id === p.withholdingCodeId);
           if (c) this.items.update((ls) => [...ls, this.newItem(c.tax as '1' | '2', c, c.percentage === null ? p.percentage : c.percentage)]);

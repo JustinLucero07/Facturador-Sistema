@@ -6,10 +6,12 @@ import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatSelectModule } from '@angular/material/select';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatTableModule } from '@angular/material/table';
 import { RouterLink } from '@angular/router';
-import { EDOC_STATUS_LABELS, type EDocStatusCode, type Paginated, type PurchaseDetail, type PurchaseListItem, type WithholdingDraft } from '@vektra/shared-contracts';
+import { EDOC_STATUS_LABELS, type EDocStatusCode, type Paginated, type PurchaseAtsCatalogs, type PurchaseDetail, type PurchaseListItem, type WithholdingDraft } from '@vektra/shared-contracts';
 import { WithholdingDialog } from './withholding-dialog';
 import { firstValueFrom } from 'rxjs';
 import { apiMessage } from '../../core/http';
@@ -19,7 +21,7 @@ const DOC: Record<string, string> = { '01': 'Factura', '02': 'Nota de venta', '0
 
 @Component({
   selector: 'vk-purchase-detail',
-  imports: [MatDialogModule, MatButtonModule, MatFormFieldModule, MatInputModule, FormsModule, CurrencyPipe, DatePipe, RouterLink],
+  imports: [MatDialogModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatCheckboxModule, FormsModule, CurrencyPipe, DatePipe, RouterLink],
   template: `
     @if (p(); as p) {
       <h2 mat-dialog-title>{{ doc[p.docType] }} {{ p.number }} · {{ p.supplierName }}</h2>
@@ -55,6 +57,36 @@ const DOC: Record<string, string> = { '01': 'Factura', '02': 'Nota de venta', '0
           <div><span>IVA</span><span>{{ p.totalTax | currency }}</span></div>
           <div class="b"><span>Total</span><span>{{ p.total | currency }}</span></div>
         </div>
+        <h3 class="sec">Datos para el ATS</h3>
+        @if (editAts()) {
+          <div class="atsf">
+            <mat-form-field>
+              <mat-label>Sustento tributario</mat-label>
+              <mat-select [(ngModel)]="sustentoCode">
+                @for (s of cat()?.sustento ?? []; track s.code) { <mat-option [value]="s.code">{{ s.code }} · {{ s.description }}</mat-option> }
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Forma de pago (SRI)</mat-label>
+              <mat-select [(ngModel)]="paymentCode">
+                <mat-option [value]="null">Sin forma de pago</mat-option>
+                @for (f of cat()?.paymentForms ?? []; track f.code) { <mat-option [value]="f.code">{{ f.code }} · {{ f.description }}</mat-option> }
+              </mat-select>
+            </mat-form-field>
+            <mat-checkbox [(ngModel)]="relatedParty">El proveedor es parte relacionada</mat-checkbox>
+            <div class="atsb">
+              <button matButton type="button" (click)="editAts.set(false)">Cancelar</button>
+              <button matButton="filled" type="button" (click)="saveAts()" [disabled]="busy()">Guardar</button>
+            </div>
+          </div>
+        } @else {
+          <div class="atsv">
+            <span>Sustento: @if (p.sustentoCode) { <b>{{ p.sustentoCode }}</b> {{ label(cat()?.sustento, p.sustentoCode) }} } @else { <span class="danger">falta</span> }</span>
+            <span>Forma de pago: @if (p.paymentCode) { <b>{{ p.paymentCode }}</b> {{ label(cat()?.paymentForms, p.paymentCode) }} } @else { — }</span>
+            <span>Parte relacionada: {{ p.relatedParty ? 'Sí' : 'No' }}</span>
+            @if (p.status !== 'VOID') { <button matButton type="button" (click)="startAts(p)"><span class="material-symbols-outlined">edit</span> Cambiar</button> }
+          </div>
+        }
         <h3 class="sec">Retención</h3>
         @for (w of withholdings(); track w.id) {
           <div class="wh">
@@ -101,6 +133,10 @@ const DOC: Record<string, string> = { '01': 'Factura', '02': 'Nota de venta', '0
     .w { width: 100%; margin-top: 12px; }
     .sec { font: var(--mat-sys-title-small); margin: 16px 0 6px; }
     .wh { display: flex; gap: 12px; align-items: center; padding: 4px 0; }
+    .atsv { display: flex; flex-wrap: wrap; gap: 4px 18px; align-items: center; }
+    .atsf { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+    .atsf mat-checkbox, .atsb { grid-column: 1 / -1; }
+    .atsb { display: flex; justify-content: flex-end; gap: 8px; }
     .danger { color: var(--vk-danger); }
     .danger-f { --mat-button-filled-container-color: var(--vk-danger); }
   `,
@@ -119,8 +155,39 @@ export class PurchaseDetailDialog implements OnInit {
   protected readonly hasLiveWithholding = () => this.withholdings().some((w) => w.status !== 'NOT_AUTHORIZED' && w.status !== 'RETURNED');
   protected readonly busy = signal(false);
   protected reason = '';
+  protected readonly editAts = signal(false);
+  protected readonly cat = signal<PurchaseAtsCatalogs | null>(null);
+  protected sustentoCode: string | null = null;
+  protected paymentCode: string | null = null;
+  protected relatedParty = false;
+  protected readonly label = (list: { code: string; description: string }[] | undefined, code: string) => list?.find((x) => x.code === code)?.description ?? '';
+
+  protected startAts(p: PurchaseDetail): void {
+    this.sustentoCode = p.sustentoCode;
+    this.paymentCode = p.paymentCode;
+    this.relatedParty = p.relatedParty;
+    this.editAts.set(true);
+  }
+
+  protected async saveAts(): Promise<void> {
+    if (!this.sustentoCode) return this.notify.error('Elija el sustento tributario');
+    this.busy.set(true);
+    try {
+      await firstValueFrom(this.http.post(`/api/purchases/${this.data.id}/ats`, { sustentoCode: this.sustentoCode, paymentCode: this.paymentCode, relatedParty: this.relatedParty }));
+      this.p.set(await firstValueFrom(this.http.get<PurchaseDetail>(`/api/purchases/${this.data.id}`)));
+      this.editAts.set(false);
+      this.notify.ok('Datos del ATS actualizados');
+    } catch (e) {
+      this.notify.error(apiMessage(e));
+    } finally {
+      this.busy.set(false);
+    }
+  }
 
   async ngOnInit(): Promise<void> {
+    firstValueFrom(this.http.get<PurchaseAtsCatalogs>('/api/purchases/ats-catalogs'))
+      .then((c) => this.cat.set(c))
+      .catch(() => undefined);
     try {
       this.p.set(await firstValueFrom(this.http.get<PurchaseDetail>(`/api/purchases/${this.data.id}`)));
       await this.loadWithholdings();

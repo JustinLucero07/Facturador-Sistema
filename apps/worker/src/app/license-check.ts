@@ -6,8 +6,9 @@ import type { WorkerEnv } from './env';
 const logger = new Logger('LicenseCheck');
 
 /**
- * Valida la licencia con el Vektra Hub y reporta el uso de la instalación.
- * Si el Hub no responde, se conserva el token anterior (válido hasta 48 h desde la última validación).
+ * Reporta el estado de la instalación al Vektra Hub (uso, firma por vencer, errores con el SRI) y, si el Hub
+ * entrega una licencia permanente más reciente (p. ej. con un RUC nuevo), la guarda.
+ * La licencia permanente NO depende de este contacto: si el Hub no responde o no entrega licencia, nada cambia.
  */
 export async function checkLicenseWithHub(prisma: PrismaClient, env: WorkerEnv): Promise<'ok' | 'skipped' | 'failed'> {
   if (!env.INSTALLATION_ID || !env.INSTALLATION_SECRET || !env.HUB_URL) {
@@ -30,20 +31,26 @@ export async function checkLicenseWithHub(prisma: PrismaClient, env: WorkerEnv):
       body: JSON.stringify({ installationId: env.INSTALLATION_ID, secret: env.INSTALLATION_SECRET, appVersion: env.APP_VERSION, report }),
       signal: AbortSignal.timeout(15_000),
     });
-    const body = (await res.json().catch(() => ({}))) as { token?: string; message?: string };
-    if (!res.ok || !body.token) throw new Error(body.message ?? `HTTP ${res.status}`);
+    const body = (await res.json().catch(() => ({}))) as { token?: string | null; message?: string };
+    if (!res.ok) throw new Error(body.message ?? `HTTP ${res.status}`);
+    if (!body.token) {
+      logger.log('Estado reportado al Hub (sin cambios en la licencia)');
+      await prisma.instanceLicense.updateMany({ where: { id: 1 }, data: { lastValidatedAt: new Date(), lastError: null } });
+      return 'ok';
+    }
 
     const state = evaluateLicense(body.token, env.LICENSE_PUBLIC_KEY, new Date(), env.INSTALLATION_ID);
-    if (state.state === 'invalid' || state.state === 'missing') {
-      throw new Error(`El Hub devolvió una licencia no válida (${state.state === 'invalid' ? state.reason : 'vacía'})`);
+    // Solo se reemplaza por una licencia permanente válida: el Hub nunca puede bloquear una instalación pagada
+    if (state.state !== 'valid' || state.payload.kind !== 'perpetual') {
+      throw new Error(`El Hub devolvió una licencia que no se aplica (${state.state === 'invalid' ? state.reason : state.state})`);
     }
-    const expiresAt = new Date(state.payload.exp * 1000);
+    const expiresAt = null;
     await prisma.instanceLicense.upsert({
       where: { id: 1 },
       create: { id: 1, installationId: env.INSTALLATION_ID, token: body.token, status: state.state, expiresAt, lastValidatedAt: new Date() },
       update: { installationId: env.INSTALLATION_ID, token: body.token, status: state.state, expiresAt, lastValidatedAt: new Date(), lastError: null },
     });
-    logger.log(`Licencia renovada (${state.state}) hasta ${expiresAt.toISOString()}`);
+    logger.log(`Licencia permanente actualizada (RUC: ${(state.payload.rucs ?? []).join(', ')})`);
     return 'ok';
   } catch (e) {
     const message = (e as Error).message;

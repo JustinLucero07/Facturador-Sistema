@@ -40,11 +40,14 @@ export async function withholdingDraft(prisma: PrismaClient, tenantId: string, p
         iva: money(iva),
         total: p.total.toFixed(2),
       },
-      previous: last
+      // Sugerencia: datos ATS de la compra y, si no hay, los de la última retención al proveedor
+      previous:
+        last || p.sustentoCode
         ? {
-            sustentoCode: lastInfo.sustentoCode ?? '',
-            paymentCode: lastInfo.paymentCode ?? null,
-            items: last.withholdings
+            sustentoCode: p.sustentoCode ?? lastInfo.sustentoCode ?? '',
+            paymentCode: p.paymentCode ?? lastInfo.paymentCode ?? null,
+            relatedParty: p.relatedParty || supplier.relatedParty,
+            items: (last?.withholdings ?? [])
               .map((w) => ({ withholdingCodeId: lastCodes.find((c) => c.tax === w.tax && c.code === w.code && c.active)?.id ?? '', percentage: w.percentage.toString() }))
               .filter((x) => x.withholdingCodeId),
           }
@@ -201,6 +204,8 @@ export async function issueWithholding(prisma: PrismaClient, ctx: IssueContext, 
         createdBy: ctx.userId,
       },
     });
+    // Los datos ATS de la retención quedan también en la compra (anexo transaccional)
+    await tx.purchase.update({ where: { id: p.id }, data: { sustentoCode: input.sustentoCode, paymentCode: input.paymentCode, relatedParty: input.relatedParty } });
     await tx.withholdingLine.createMany({
       data: items.map((i, k) => ({ id: uuidv7(), tenantId: ctx.tenantId, documentId, lineNo: k + 1, tax: i.tax, code: i.code, description: i.description, base: i.base, percentage: i.percentage, amount: i.amount })),
     });

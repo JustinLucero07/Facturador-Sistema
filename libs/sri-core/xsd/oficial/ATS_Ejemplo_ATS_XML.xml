@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding="ISO-8859-1" standalone="yes"?>
+<iva>
+	<!--Nuevo -->
+	<TipoIDInformante>R</TipoIDInformante>
+	<!--Fin Nuevo -->
+	
+	<IdInformante>1713657334001</IdInformante>
+	<razonSocial>EJEMPLO SIN DUPLICADOS ACTUALIZADO</razonSocial>
+	<Anio>2012</Anio>
+	<Mes>06</Mes>
+
+	<!--Nuevos -->
+	<!-- Campos de numero de establecimientos y total de ventas  -->
+	<numEstabRuc>002</numEstabRuc>
+	<totalVentas>6000.00</totalVentas>
+	
+	<!-- Campo de Codigo Operativo. Debe ser el último campo de la cabecera. -->
+	<codigoOperativo>IVA</codigoOperativo>
+	<!--Fin Nuevos -->
+
+	<compras>
+		<detalleCompras>
+			<codSustento>01</codSustento>
+			<tpIdProv>01</tpIdProv>
+			<idProv>1713657334001</idProv>
+			<tipoComprobante>01</tipoComprobante>
+			<!--Nuevos --> 
+			<tipoProv>02</tipoProv>	
+			<parteRel>SI</parteRel>
+			<!--Fin Nuevos -->
+			<fechaRegistro>15/06/2012</fechaRegistro>
+			<establecimiento>001</establecimiento>
+			<puntoEmision>001</puntoEmision>
+			<secuencial>123456789</secuencial>
+			<fechaEmision>10/06/2012</fechaEmision>
+			<autorizacion>1105358792</autorizacion>
+			<baseNoGraIva>1000.00</baseNoGraIva>
+			<baseImponible>1000.00</baseImponible>
+			<baseImpGrav>1000.00</baseImpGrav>
+			<montoIce>150.00</montoIce>
+			<montoIva>120.00</montoIva>
+			<valorRetBienes>36.00</valorRetBienes>
+			<valorRetServicios>84.00</valorRetServicios>
+			<valRetServ100>120.00</valRetServ100>
+
+			<!--Nuevos --> 
+			<pagoExterior>
+				<pagoLocExt>01</pagoLocExt>
+				<paisEfecPago>NA</paisEfecPago>
+				<aplicConvDobTrib>NO</aplicConvDobTrib>
+				<pagExtSujRetNorLeg>SI</pagExtSujRetNorLeg>
+			</pagoExterior>
+			
+			<formasDePago>
+				<formaPago>02</formaPago>	
+				<formaPago>01</formaPago>										
+			</formasDePago>
+			<!--Fin Nuevos -->
+
+			<air>
+				<detalleAir>
+					<codRetAir>304</codRetAir>
+					<baseImpAir>1000.00</baseImpAir>
+					<porcentajeAir>8.00</porcentajeAir>
+					<valRetAir>80.00</valRetAir>
+					
+					<!--Nuevos -->
+					<fechaPagoDiv>NA</fechaPagoDiv>
+					<imRentaSoc>NA</imRentaSoc>	
+					<anioUtDiv>NA</anioUtDiv>
+					<!--Fin Nuevos -->
+				</detalleAir>  
+			</air>	
+			
+			<estabRetencion1>001</estabRetencion1>
+			<ptoEmiRetencion1>001</ptoEmiRetencion1>
+			<secRetencion1>123456789</secRetencion1>
+			<autRetencion1>1104369877</autRetencion1>
+			<fechaEmiRet1>16/06/2012</fechaEmiRet1>          
+
+			<docModificado>01</docModificado>
+			<estabModificado>000</estabModificado>
+			<ptoEmiModificado>000</ptoEmiModificado>
+			<secModificado>0</secModificado>
+			<autModificado>000</autModificado>
+			
+			<!--Nuevos -->			
+		
+			<reembolsos>
+				<reembolso>		
+					<tipoComprobanteReemb>01</tipoComprobanteReemb>	
+					<tpIdProvReemb>01</tpIdProvReemb>
+					<idProvReemb>0703623446001</idProvReemb>					
+					<establecimientoReemb>666</establecimientoReemb>
+					<puntoEmisionReemb>777</puntoEmisionReemb>
+					<secuencialReemb>111</secuencialReemb>
+					<fechaEmisionReemb>15/01/2008</fechaEmisionReemb>
+					<autorizacionReemb>888888</autorizacionReemb>
+					<baseImponibleReemb>999999.99</baseImponibleReemb>
+					<baseImpGravReemb>999999.99</baseImpGravReemb>
+					<montoIceRemb>654325464323.87</montoIceRemb>
+					<montoIvaRemb>12</montoIvaRemb>		
+				</reembolso>			
+			</reembolsos>
+			<!--Fin Nuevos -->		
+		</detalleCompras>
+	</compras>
+
+	<ventas>
+		<detalleVentas>
+			<tpIdCliente>04</tpIdCliente>
+			<idCliente>1713657334001</idCliente>
+			<tipoComprobante>18</tipoComprobante>
+			<numeroComprobantes>1</numeroComprobantes>
+			<baseNoGraIva>1000.00</baseNoGraIva>
+			<baseImponible>1000.00</baseImponible>
+			<baseImpGrav>1000.00</baseImpGrav>
+			<montoIva>120.00</montoIva>
+			<valorRetIva>84.00</valorRetIva>
+			<valorRetRenta>24.00</valorRetRenta>
+		</detalleVentas>
+
+	</ventas>
+	<!-- Nueva seccion solo para las ventas de los establecimientos  -->
+	<ventasEstablecimiento>
+		<ventaEst>
+			<codEstab>001</codEstab>
+			<ventasEstab>3000.00</ventasEstab>
+		</ventaEst>
+		<ventaEst>
+			<codEstab>002</codEstab>
+			<ventasEstab>3000.00</ventasEstab>
+		</ventaEst>
+	</ventasEstablecimiento>
+
+	<exportaciones>
+		<detalleExportaciones>
+			<exportacionDe>01</exportacionDe>
+			<tipoComprobante>01</tipoComprobante>
+			<distAduanero>019</distAduanero>
+			<anio>2008</anio>
+			<regimen>10</regimen> <!--Validar contra la fechaEmbarque -->
+			<correlativo>123456</correlativo> <!--Validar contra la fechaEmbarque -->
+			<verificador>4</verificador> <!--Validar contra la fechaEmbarque -->
+			<docTransp>0000000000001</docTransp>
+			<fechaEmbarque>15/06/2012</fechaEmbarque>
+			<fue>0000000000001</fue>
+			<valorFOB>1000.00</valorFOB>
+			<valorFOBComprobante>1000.00</valorFOBComprobante>
+			<establecimiento>001</establecimiento>
+			<puntoEmision>001</puntoEmision>
+			<secuencial>123456789</secuencial>
+			<autorizacion>1104523547</autorizacion>
+			<fechaEmision>15/06/2012</fechaEmision>
+		</detalleExportaciones>
+
+	</exportaciones>
+	<recap>
+		<detalleRecap>
+			<establecimientoRecap>10</establecimientoRecap>
+			<identificacionRecap>1713657334001</identificacionRecap>
+			<tipoComprobante>22</tipoComprobante>
+			<numeroRecap>000000000000001</numeroRecap>
+			<fechaPago>15/06/2012</fechaPago>
+			<tarjetaCredito>01</tarjetaCredito>
+			<fechaEmisionRecap>14/06/2012</fechaEmisionRecap>
+			<consumoCero>1000.00</consumoCero>
+			<consumoGravado>1000.00</consumoGravado>
+			<totalConsumo>2000.00</totalConsumo>
+			<montoIva>120.00</montoIva>
+			<comision>10.00</comision>
+			<numeroVouchers>1</numeroVouchers>
+			<valorRetBienes>36.00</valorRetBienes>
+			<valorRetServicios>84.00</valorRetServicios>
+			<valRetServ100>120.00</valRetServ100> 
+			<!--Nuevos -->	
+			<pagoExterior>
+				<pagoLocExt>02</pagoLocExt>	<!-- considerar no generar un catalogo-->			
+				<paisEfecPago>198</paisEfecPago>
+				<aplicConvDobTrib>SI</aplicConvDobTrib>
+				<pagExtSujRetNorLeg>NA</pagExtSujRetNorLeg>
+			</pagoExterior>
+			<!--Fin Nuevos -->
+			<air>
+				<detalleAir>
+					<codRetAir>310</codRetAir>
+					<baseImpAir>1000.00</baseImpAir>
+					<porcentajeAir>1.00</porcentajeAir>
+					<valRetAir>10.00</valRetAir>
+				</detalleAir>    
+				<detalleAir>
+					<codRetAir>311</codRetAir>
+					<baseImpAir>1000.00</baseImpAir>
+					<porcentajeAir>2.00</porcentajeAir>
+					<valRetAir>20.00</valRetAir>
+				</detalleAir>
+			</air>
+
+			<establecimiento>001</establecimiento>
+			<puntoEmision>001</puntoEmision>
+			<secuencial>123456789</secuencial>
+			<autorizacion>1104578987</autorizacion>
+			<fechaEmision>15/01/2008</fechaEmision>
+		</detalleRecap>
+
+	</recap>
+	<fideicomisos>
+		<detalleFideicomisos>
+			<tipoBeneficiario>15</tipoBeneficiario>
+			<idBeneficiario>1713657334001</idBeneficiario>
+			<rucFideicomiso>1891723020001</rucFideicomiso>    
+			<fValor>
+				<detallefValor>
+					<tipoFideicomiso>9</tipoFideicomiso>
+					<totalF>2000.00</totalF>
+					<individualF>500.00</individualF>
+					<porRetF>2.0</porRetF>
+					<valorRetF>10.00</valorRetF>
+
+					<!--Nuevos -->					
+					<pagoExterior>
+							<pagoLocExt>01</pagoLocExt>
+							<paisEfecPago>NA</paisEfecPago>
+							<aplicConvDobTrib>NO</aplicConvDobTrib>
+							<pagExtSujRetNorLeg>SI</pagExtSujRetNorLeg>
+					</pagoExterior>
+					<!--Fin Nuevos -->			
+				</detallefValor>
+
+			</fValor>	
+			
+		</detalleFideicomisos>
+
+	</fideicomisos>
+
+	<anulados>
+		<detalleAnulados>
+			<tipoComprobante>01</tipoComprobante>
+			<establecimiento>001</establecimiento>
+			<puntoEmision>001</puntoEmision>
+			<secuencialInicio>200</secuencialInicio>
+			<secuencialFin>250</secuencialFin>
+			<autorizacion>1104523698</autorizacion>
+		</detalleAnulados>
+
+
+		<detalleAnulados>
+			<tipoComprobante>02</tipoComprobante>
+			<establecimiento>001</establecimiento>
+			<puntoEmision>001</puntoEmision>
+			<secuencialInicio>1000</secuencialInicio>
+			<secuencialFin>2000</secuencialFin>
+			<autorizacion>123456789</autorizacion>
+		</detalleAnulados>
+
+	</anulados>
+	<rendFinancieros>
+		<detalleRendFinancieros>
+			<retenido>12</retenido>
+			<idRetenido>1713657334001</idRetenido>
+			<ahorroPN>
+				<totalDep>1000.00</totalDep>
+				<rendGen>10.00</rendGen>
+			</ahorroPN>
+			<ctaExenta>
+				<totalDep>1000.00</totalDep>
+				<rendGen>10.00</rendGen>
+			</ctaExenta>
+			<retenciones>
+				<detRet>
+					<estabRetencion>001</estabRetencion>
+					<ptoEmiRetencion>001</ptoEmiRetencion>
+					<secRetencion>123456789</secRetencion>
+					<autRetencion>1104525852</autRetencion>
+					<fechaEmiRet>15/06/2012</fechaEmiRet>
+					<airRend>
+						<detalleAirRen>
+							<codRetAir>323A</codRetAir>
+							<deposito>10000.00</deposito>
+							<baseImpAir>500.00</baseImpAir>
+							<porcentajeAir>2.00</porcentajeAir>
+							<valRetAir>10.00</valRetAir>
+						</detalleAirRen>
+
+					</airRend>
+				</detRet>
+
+			</retenciones>
+		</detalleRendFinancieros>
+
+		<detalleRendFinancieros>
+			<retenido>14</retenido>
+			<idRetenido>1713657334ASD</idRetenido>
+			<ahorroPN>
+				<totalDep>1000.00</totalDep>
+				<rendGen>10.00</rendGen>
+			</ahorroPN>
+			<ctaExenta>
+				<totalDep>1000.00</totalDep>
+				<rendGen>10.00</rendGen>
+			</ctaExenta>
+
+		</detalleRendFinancieros>
+	</rendFinancieros>
+</iva>

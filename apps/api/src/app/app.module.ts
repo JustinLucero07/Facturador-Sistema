@@ -21,6 +21,9 @@ import { DevicesService } from './devices/devices.service';
 import { SyncController } from './sync/sync.controller';
 import { AccountsController } from './accounts/accounts.controller';
 import { AccountsService } from './accounts/accounts.service';
+import { AtsService } from './reports/ats.service';
+import { ReportsController } from './reports/reports.controller';
+import { ReportsService } from './reports/reports.service';
 import { PurchasesController } from './purchases/purchases.controller';
 import { PurchasesService } from './purchases/purchases.service';
 import { RuntimeController } from './sync/runtime.controller';
@@ -55,6 +58,7 @@ import { UsersService } from './users/users.service';
     DevicesController,
     SyncController,
     AccountsController,
+    ReportsController,
     PurchasesController,
     RuntimeController,
     UsersController,
@@ -77,6 +81,8 @@ import { UsersService } from './users/users.service';
     DevicesService,
     SyncService,
     AccountsService,
+    ReportsService,
+    AtsService,
     PurchasesService,
     AuditService,
     LicenseService,

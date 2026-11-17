@@ -7,10 +7,10 @@ Vektra vende el sistema **cliente por cliente**: cada negocio paga **su propia V
 ```
 ┌──────────────── VPS de Vektra ────────────────┐        ┌──────── VPS del cliente (ej. Ferretería X) ────────┐
 │  VEKTRA HUB  (apps/hub-api + apps/hub-web)    │        │  INSTANCIA  (api + worker + web + postgres + redis) │
-│  · clientes, planes, suscripciones            │◀──────▶│  · 1..n empresas (RUC) del mismo dueño             │
-│  · emisión de licencias firmadas (Ed25519)    │ HTTPS  │  · valida licencia cada hora; tolera 48 h sin Hub  │
-│  · cobro mensual: factura electrónica Vektra, │        │  · reporta uso, caducidad de firma y errores SRI   │
-│    link Payphone/Deuna, suspensión automática │        │                                                     │
+│  · clientes, planes, instalaciones            │◀──────▶│  · 1..n empresas (RUC) del mismo dueño             │
+│  · códigos de activación permanentes (Ed25519)│ HTTPS  │  · licencia permanente: no depende del Hub          │
+│    con los RUC autorizados                    │(opcio- │  · reporta uso, caducidad de firma y errores SRI   │
+│                                               │  nal)  │                                                     │
 │  · telemetría: uso, firmas por caducar,       │        │   ▲ cajas de escritorio (Electron + SQLite)         │
 │    errores SRI de todos los clientes          │        │   └─ conectadas a la API de la instancia            │
 └───────────────────────────────────────────────┘        └─────────────────────────────────────────────────────┘
@@ -18,8 +18,8 @@ Vektra vende el sistema **cliente por cliente**: cada negocio paga **su propia V
 
 - **Se mantiene `tenant_id` + RLS dentro de cada instancia.** Cuesta poco, permite que un mismo dueño tenga varios RUC en su VPS y cumple el criterio de aislamiento entre empresas. También deja abierta una futura modalidad SaaS compartida.
 - **El “Panel Superadmin” pasa a ser el Vektra Hub.** En cada instancia queda un rol técnico **“Soporte Vektra”** para la instalación y el mantenimiento.
-- **Licencia:** el Hub emite un token firmado con los límites del plan. La instancia lo verifica con la clave pública incluida en ella, aunque no tenga conexión. Si pasan **48 h** sin validar, **se bloquea la emisión de comprobantes** (el resto queda en solo lectura) hasta que vuelva a validar o se ingrese un **código de activación offline** que Vektra entrega por teléfono o WhatsApp. Así una caída del Hub no deja a todos los clientes sin facturar.
-- **Cobro (Fase 8):** el Hub genera el cargo mensual, emite la factura electrónica de Vektra con el mismo `@vektra/sri-core`, envía el link de pago (Payphone o Deuna), concilia los pagos por webhook y suspende la licencia tras el período de gracia.
+- **Modelo de venta (corregido el 17/11/2026): pago único.** El cliente paga una vez, Vektra instala y el cliente paga su VPS. No hay cuota mensual; soporte y actualizaciones se cobran aparte. Por eso se descartó la fase de cobro mensual.
+- **Licencia permanente:** el Hub firma (Ed25519) un **código de activación** que se ingresa una vez en Empresa → Licencia. No vence, no necesita el Hub y nunca bloquea a un cliente que pagó. Está atada a la instalación (`INSTALLATION_ID`) y a los **RUC autorizados**: una empresa con un RUC que no está en el código queda en solo lectura y no se puede dar de alta. Para autorizar un RUC nuevo, Vektra entrega un código nuevo (Hub → Instalaciones → ⋮ → RUC autorizados / Código de activación). Si la instancia tiene el Hub configurado, reporta su estado cada hora y recibe automáticamente el código actualizado; una instalación suspendida en el Hub no recibe nada que la bloquee.
 - **Por cada empresa:** SMTP propio, credenciales de WhatsApp Business (Cloud API de Meta) opcionales con respaldo `wa.me`, y Payphone/Deuna en dos modos: solo registro manual o integración por API (QR o link con confirmación automática).
 - **Modo offline de la caja:** crea clientes, productos, ventas y notas de crédito. Todo usa UUID generado en el cliente. Al sincronizar, los clientes se fusionan por número de identificación; si un código de producto choca con otro, el producto queda marcado como “conflicto” para revisión. El stock negativo es configurable por empresa.
 

@@ -28,7 +28,6 @@ import {
   InstallationItem,
   LicenseValidateRequest,
   licenseValidateSchema,
-  offlineCodeSchema,
   PlanItem,
   PlanRequest,
   planSchema,
@@ -144,7 +143,7 @@ export class InstallationsController {
       planName: i.plan.name,
       status: i.status,
       baseUrl: i.baseUrl,
-      graceHours: i.graceHours,
+      rucs: i.rucs,
       lastSeenAt: i.lastSeenAt?.toISOString() ?? null,
       appVersion: i.appVersion,
       lastReport: (i.lastReport as Record<string, unknown> | null) ?? null,
@@ -183,15 +182,15 @@ export class InstallationsController {
     return this.credentials(inst.publicId, secret);
   }
 
-  /** Código de activación offline (se dicta/envía al cliente cuando su VPS no llega al Hub). */
-  @Post(':id/offline-code')
+  /** Código de activación PERMANENTE (pago único): se ingresa una vez en la instancia, con los RUC autorizados. */
+  @Post(':id/activation-code')
   @HttpCode(200)
-  async offlineCode(@Param('id', ParseUUIDPipe) id: string, @Body(new ZodPipe(offlineCodeSchema)) body: { days: number }, @Req() req: HubRequest) {
+  async activationCode(@Param('id', ParseUUIDPipe) id: string, @Req() req: HubRequest) {
     const inst = await this.prisma.db.installation.findUnique({ where: { id }, include: { plan: true, client: true } });
     if (!inst) throw new NotFoundException('Instalación no encontrada');
-    if (inst.status !== 'ACTIVE') throw new ForbiddenException('La instalación no está activa');
-    const { token, expiresAt } = await this.issuer.issue(inst, 'offline', { days: body.days, issuedBy: req.hubUserId });
-    return { code: token, expiresAt: expiresAt.toISOString() };
+    if (inst.status === 'CANCELLED') throw new ForbiddenException('La instalación está cancelada');
+    const { token, rucs } = await this.issuer.issue(inst, { issuedBy: req.hubUserId });
+    return { code: token, rucs };
   }
 
   private credentials(installationId: string, installationSecret: string): InstallationCredentials {
@@ -233,8 +232,11 @@ export class LicenseEndpointController {
         ...(body.report ? { lastReport: body.report as Prisma.InputJsonValue } : {}),
       },
     });
-    const { token, expiresAt } = await this.issuer.issue(inst, 'periodic');
-    return { token, expiresAt: expiresAt.toISOString() };
+    // Solo reporte de estado: se entrega la licencia permanente vigente (útil si se autorizó un RUC nuevo).
+    // Una instalación suspendida o cancelada NO recibe nada que la bloquee: conserva la licencia que ya pagó.
+    if (inst.status !== 'ACTIVE') return { token: null };
+    const { token } = await this.issuer.issue(inst, { record: false });
+    return { token };
   }
 }
 

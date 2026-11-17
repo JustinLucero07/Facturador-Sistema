@@ -47,6 +47,18 @@ export const appRoutes: Route[] = [
         loadComponent: () => import('./pages/structure/structure').then((m) => m.StructurePage),
       },
       {
+        path: 'reportes',
+        title: 'Reportes · Vektra POS',
+        canActivate: [permissionGuard('reports.read')],
+        loadComponent: () => import('./pages/reports/reports').then((m) => m.ReportsPage),
+      },
+      {
+        path: 'ats',
+        title: 'Anexo Transaccional (ATS) · Vektra POS',
+        canActivate: [permissionGuard('reports.tax')],
+        loadComponent: () => import('./pages/reports/ats').then((m) => m.AtsPage),
+      },
+      {
         path: 'cuentas/cobrar',
         title: 'Cuentas por cobrar · Vektra POS',
         canActivate: [permissionGuard('receivables.manage')],

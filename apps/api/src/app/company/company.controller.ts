@@ -122,6 +122,7 @@ export class CompanyService {
       throw new BadRequestException({ message: 'Revise los datos ingresados', fields: { ruc: ruc.error ?? 'RUC inválido' } });
     }
     await this.license.assertLimit('tenants');
+    await this.license.assertRucAllowed(input.ruc);
     if (await this.prisma.client.tenant.findUnique({ where: { ruc: input.ruc } })) {
       throw new ConflictException('Ya existe una empresa con ese RUC');
     }

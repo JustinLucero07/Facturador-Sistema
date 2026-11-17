@@ -20,6 +20,8 @@ Cada cliente tiene **su propia VPS** con una instancia del sistema. El **Vektra 
 | `libs/inventory` | Kárdex con costo promedio ponderado, stock por bodega, ajustes y transferencias — ver [docs/fase-2-catalogo.md](docs/fase-2-catalogo.md) |
 | Notas de crédito y compras | ver [docs/fase-5-notas-credito-compras.md](docs/fase-5-notas-credito-compras.md) |
 | Retenciones | ver [docs/fase-6-retenciones.md](docs/fase-6-retenciones.md) (catálogo oficial en `docs/sri/Catalogo_ATS.xls`) |
+| `libs/accounts` | Cuentas por cobrar y por pagar — ver [docs/fase-7-cuentas.md](docs/fase-7-cuentas.md) |
+| `apps/api/src/app/reports`, `libs/sri-core/src/lib/ats` | Reportes (Excel) y ATS — ver [docs/fase-8-reportes-ats.md](docs/fase-8-reportes-ats.md) |
 | `libs/pos-local` | Motor de la caja de escritorio: SQLite, API local y sincronización con el servidor |
 | `libs/licensing` | Licencias firmadas Ed25519 (emisión y verificación) |
 | `libs/shared-domain` | Reglas puras: validación de cédula/RUC, permisos, roles, plantillas de negocio |

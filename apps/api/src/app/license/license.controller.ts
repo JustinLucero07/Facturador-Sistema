@@ -16,7 +16,7 @@ export class LicenseController {
   /** Cualquier usuario autenticado ve el estado (para el aviso en pantalla). */
   @Get('license')
   status() {
-    return this.license.status();
+    return this.license.status(currentContext().tenantId);
   }
 
   @Post('license/activate')
